@@ -7,6 +7,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -162,7 +163,7 @@ public class WeiboHandler {
 			throws HandlerException {
 		HttpPost post = new HttpPost("http://www.weibo.com/aj/f/followed");
 
-		post.addHeader("Referer", "http://www.weibo.com/" + userId);
+		post.addHeader(HttpHeaders.REFERER, "http://www.weibo.com/" + userId);
 
 		List<NameValuePair> nameValuePairList = new ArrayList<NameValuePair>();
 
@@ -193,7 +194,7 @@ public class WeiboHandler {
 			throws HandlerException {
 		HttpPost post = new HttpPost("http://www.weibo.com/aj/f/unfollow");
 
-		post.addHeader("Referer", "http://www.weibo.com/" + userId);
+		post.addHeader(HttpHeaders.REFERER, "http://www.weibo.com/" + userId);
 
 		List<NameValuePair> nameValuePairList = new ArrayList<NameValuePair>();
 
