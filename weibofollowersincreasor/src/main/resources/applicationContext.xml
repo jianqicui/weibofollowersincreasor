@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:task="http://www.springframework.org/schema/task"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx.xsd
+    http://www.springframework.org/schema/aop
+    http://www.springframework.org/schema/aop/spring-aop.xsd
+    http://www.springframework.org/schema/task
+    http://www.springframework.org/schema/task/spring-task.xsd">
+
+	<bean
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:mysql.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName">
+			<value>com.mysql.jdbc.Driver</value>
+		</property>
+		<property name="url">
+			<value>${mysql.url}</value>
+		</property>
+		<property name="username">
+			<value>${mysql.username}</value>
+		</property>
+		<property name="password">
+			<value>${mysql.password}</value>
+		</property>
+		<property name="initialSize">
+			<value>1</value>
+		</property>
+		<property name="maxActive">
+			<value>20</value>
+		</property>
+		<property name="maxIdle">
+			<value>20</value>
+		</property>
+		<property name="minIdle">
+			<value>5</value>
+		</property>
+		<property name="maxWait">
+			<value>60000</value>
+		</property>
+		<property name="removeAbandoned">
+			<value>true</value>
+		</property>
+		<property name="removeAbandonedTimeout">
+			<value>300</value>
+		</property>
+		<property name="testWhileIdle">
+			<value>true</value>
+		</property>
+		<property name="testOnBorrow">
+			<value>true</value>
+		</property>
+		<property name="testOnReturn">
+			<value>true</value>
+		</property>
+		<property name="validationQuery">
+			<value>select 1</value>
+		</property>
+		<property name="validationQueryTimeout">
+			<value>1</value>
+		</property>
+		<property name="timeBetweenEvictionRunsMillis">
+			<value>1800000</value>
+		</property>
+		<property name="numTestsPerEvictionRun">
+			<value>20</value>
+		</property>
+		<property name="minEvictableIdleTimeMillis">
+			<value>1800000</value>
+		</property>
+	</bean>
+
+	<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="txManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<tx:advice id="txAdvice" transaction-manager="txManager">
+		<tx:attributes>
+			<tx:method name="get*" read-only="true" />
+			<tx:method name="*" />
+		</tx:attributes>
+	</tx:advice>
+
+	<aop:config>
+		<aop:pointcut id="serviceOperation"
+			expression="execution(* org.weibofollowersincreasor.service.*Service.*(..))" />
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="serviceOperation" />
+	</aop:config>
+
+	<!-- DAO -->
+	<bean id="activeUserDao" class="org.weibofollowersincreasor.dao.jdbc.ActiveUserJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<bean id="categoryDao" class="org.weibofollowersincreasor.dao.jdbc.CategoryJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<bean id="typeDao" class="org.weibofollowersincreasor.dao.jdbc.TypeJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<bean id="collectedUserDao"
+		class="org.weibofollowersincreasor.dao.jdbc.CollectedUserJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<bean id="followerDao" class="org.weibofollowersincreasor.dao.jdbc.FollowerJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<!-- Service -->
+	<bean id="activeUserService"
+		class="org.weibofollowersincreasor.service.impl.ActiveUserServiceImpl">
+		<property name="activeUserDao" ref="activeUserDao" />
+	</bean>
+
+	<bean id="categoryService"
+		class="org.weibofollowersincreasor.service.impl.CategoryServiceImpl">
+		<property name="categoryDao" ref="categoryDao" />
+	</bean>
+
+	<bean id="typeService"
+		class="org.weibofollowersincreasor.service.impl.TypeServiceImpl">
+		<property name="typeDao" ref="typeDao" />
+	</bean>
+
+	<bean id="collectedUserService"
+		class="org.weibofollowersincreasor.service.impl.CollectedUserServiceImpl">
+		<property name="collectedUserDao" ref="collectedUserDao" />
+	</bean>
+
+	<bean id="followerService"
+		class="org.weibofollowersincreasor.service.impl.FollowerServiceImpl">
+		<property name="followerDao" ref="followerDao" />
+	</bean>
+
+	<!-- Handler -->
+	<bean id="weiboHandler" class="org.weibofollowersincreasor.handler.WeiboHandler"
+		init-method="initialize" />
+
+	<bean id="saeAppBatchhelperHandler"
+		class="org.weibofollowersincreasor.handler.SaeAppBatchhelperHandler"
+		init-method="initialize" />
+
+	<!-- Action -->
+	<bean id="weiboFollowersIncreasorAction"
+		class="org.weibofollowersincreasor.action.WeiboFollowersIncreasorAction"
+		init-method="initialize">
+		<property name="activeUserService" ref="activeUserService" />
+		<property name="categoryService" ref="categoryService" />
+		<property name="typeService" ref="typeService" />
+		<property name="collectedUserService" ref="collectedUserService" />
+		<property name="followerService" ref="followerService" />
+		<property name="weiboHandler" ref="weiboHandler" />
+		<property name="saeAppBatchhelperHandler" ref="saeAppBatchhelperHandler" />
+		<property name="filteredFollowerSize">
+			<value>2000</value>
+		</property>
+		<property name="followedFollowerSize">
+			<value>25</value>
+		</property>
+		<property name="unfollowedFollowerSize">
+			<value>1400</value>
+		</property>
+	</bean>
+	
+	<!-- Task -->
+	<task:scheduler id="scheduler" pool-size="10" />
+	<task:scheduled-tasks scheduler="scheduler">
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="collectFollowers"
+			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="filterFollowers"
+			cron="0 0 1,4,7,10,13,16,19,22 * * ?" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="followFollowers"
+			cron="0 0 2,5,8,11,14,17,20,23 * * ?" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="unfollowFollowers"
+			cron="0 0 0 ? * SUN" />
+	</task:scheduled-tasks>
+
+</beans>
