@@ -21,7 +21,7 @@ public class ActiveUserJdbcDaoTest {
 	@Test
 	public void testGetCookies() throws DaoException {
 		ActiveUser activeUser = activeUserDao
-				.getActiveUser(ActiveUserPhase.collecting);
+				.getActiveUser(ActiveUserPhase.querying);
 
 		Assert.assertNotNull(activeUser);
 	}
