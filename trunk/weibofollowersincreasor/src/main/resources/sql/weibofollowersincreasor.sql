@@ -3,7 +3,7 @@ create database if not exists weibofollowersincreasor default charset utf8 colla
 
 use weibofollowersincreasor;
 
-create table user_collecting (
+create table user_querying (
 	id int not null auto_increment,
   	cookies text not null,
   	created_timestamp timestamp not null,

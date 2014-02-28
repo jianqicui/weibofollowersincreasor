@@ -43,8 +43,8 @@ public class SaeAppBatchhelperHandler {
 		}
 	}
 
-	public Followers getFollowerIdsByUserName(HttpClient httpClient,
-			String userName, int cursor, int count) throws HandlerException {
+	public Followers getFollowersByUserName(HttpClient httpClient,
+			String userName, int cursor, int size) throws HandlerException {
 		byte[] result;
 
 		StringBuilder url = new StringBuilder();
@@ -64,7 +64,7 @@ public class SaeAppBatchhelperHandler {
 		url.append("&");
 		url.append("count");
 		url.append("=");
-		url.append(count);
+		url.append(size);
 
 		HttpGet get = new HttpGet(url.toString());
 
@@ -121,11 +121,12 @@ public class SaeAppBatchhelperHandler {
 		ArrayNode userIdsArrayNode = (ArrayNode) jsonNode.get("ids");
 
 		if (userIdsArrayNode != null) {
-			int size = userIdsArrayNode.size();
+			int userIdsArrayNodeSize = userIdsArrayNode.size();
 
-			List<Follower> followerList = new ArrayList<Follower>(size);
+			List<Follower> followerList = new ArrayList<Follower>(
+					userIdsArrayNodeSize);
 
-			for (int i = 0; i < size; i++) {
+			for (int i = 0; i < userIdsArrayNodeSize; i++) {
 				String userId = userIdsArrayNode.get(i).asText();
 
 				Follower follower = new Follower();
@@ -140,6 +141,66 @@ public class SaeAppBatchhelperHandler {
 		}
 
 		return followers;
+	}
+
+	public int getStatusSize(HttpClient httpClient, String userId)
+			throws HandlerException {
+		byte[] result;
+
+		StringBuilder url = new StringBuilder();
+		url.append("http://batchhelper.sinaapp.com/action.php");
+		url.append("?");
+		url.append("action");
+		url.append("=");
+		url.append("queryUsersCounts");
+		url.append("&");
+		url.append("userIds");
+		url.append("=");
+		url.append(userId);
+
+		HttpGet get = new HttpGet(url.toString());
+
+		try {
+			HttpResponse response = httpClient.execute(get);
+
+			int statusCode = response.getStatusLine().getStatusCode();
+
+			if (statusCode == HttpStatus.SC_OK) {
+				result = EntityUtils.toByteArray(response.getEntity());
+			} else {
+				throw new HandlerException(String.valueOf(statusCode));
+			}
+		} catch (ClientProtocolException e) {
+			throw new HandlerException(e);
+		} catch (IOException e) {
+			throw new HandlerException(e);
+		} finally {
+			get.releaseConnection();
+		}
+
+		ArrayNode arrayNode;
+
+		try {
+			arrayNode = (ArrayNode) objectMapper.readTree(result);
+		} catch (JsonProcessingException e) {
+			throw new HandlerException(e);
+		} catch (IOException e) {
+			throw new HandlerException(e);
+		}
+
+		if (arrayNode.size() == 0) {
+			throw new HandlerException("GetStatusSize failed");
+		}
+
+		JsonNode jsonNode = arrayNode.get(0);
+
+		JsonNode statusSizeJsonNode = jsonNode.get("statuses_count");
+
+		if (statusSizeJsonNode != null) {
+			return statusSizeJsonNode.asInt();
+		} else {
+			throw new HandlerException("GetStatusSize failed");
+		}
 	}
 
 }
