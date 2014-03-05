@@ -121,12 +121,9 @@ public class SaeAppBatchhelperHandler {
 		ArrayNode userIdsArrayNode = (ArrayNode) jsonNode.get("ids");
 
 		if (userIdsArrayNode != null) {
-			int userIdsArrayNodeSize = userIdsArrayNode.size();
+			List<Follower> followerList = new ArrayList<Follower>();
 
-			List<Follower> followerList = new ArrayList<Follower>(
-					userIdsArrayNodeSize);
-
-			for (int i = 0; i < userIdsArrayNodeSize; i++) {
+			for (int i = 0; i < userIdsArrayNode.size(); i++) {
 				String userId = userIdsArrayNode.get(i).asText();
 
 				Follower follower = new Follower();
