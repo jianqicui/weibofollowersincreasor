@@ -398,7 +398,7 @@ public class WeiboLoginTest {
 		}
 
 		System.out.println(String
-				.format("prelogin result = %s", preloginResult));
+				.format("Prelogin result = %s", preloginResult));
 
 		jsonNode = getJsonNode(preloginResult);
 
@@ -422,7 +422,7 @@ public class WeiboLoginTest {
 			e.printStackTrace();
 		}
 
-		System.out.println(String.format("loginSina result = %s",
+		System.out.println(String.format("LoginSina result = %s",
 				loginSinaResult));
 
 		jsonNode = getJsonNode(loginSinaResult);
@@ -439,7 +439,7 @@ public class WeiboLoginTest {
 			e.printStackTrace();
 		}
 
-		System.out.println(String.format("loginWeibo result = %s",
+		System.out.println(String.format("LoginWeibo result = %s",
 				loginWeiboResult));
 
 		// pin
@@ -480,7 +480,7 @@ public class WeiboLoginTest {
 			e.printStackTrace();
 		}
 
-		System.out.println(String.format("validatePinCode result = %s",
+		System.out.println(String.format("ValidatePinCode result = %s",
 				validatePinCodeResult));
 
 		// crossDomain
@@ -493,7 +493,7 @@ public class WeiboLoginTest {
 			e.printStackTrace();
 		}
 
-		System.out.println(String.format("crossDomain result = %s",
+		System.out.println(String.format("CrossDomain result = %s",
 				crossDomainResult));
 
 		jsonNode = getJsonNode(crossDomainResult);
@@ -520,7 +520,7 @@ public class WeiboLoginTest {
 			e.printStackTrace();
 		}
 
-		System.out.println(String.format("loginWeibo2 result = %s",
+		System.out.println(String.format("LoginWeibo2 result = %s",
 				loginWeibo2Result));
 	}
 
