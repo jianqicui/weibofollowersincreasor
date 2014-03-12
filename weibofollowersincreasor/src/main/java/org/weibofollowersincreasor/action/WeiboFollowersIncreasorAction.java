@@ -7,6 +7,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -307,7 +308,35 @@ public class WeiboFollowersIncreasorAction {
 		return collectedFollowerList;
 	}
 
-	private void collectExistingFollowers() {
+	private void deduplicateCollectedUserList(List<Follower> followerList) {
+		List<Follower> vFollowerList = new ArrayList<Follower>();
+
+		for (Iterator<Follower> it = followerList.iterator(); it.hasNext();) {
+			Follower follower = it.next();
+
+			boolean existing = false;
+
+			for (Follower vFollower : vFollowerList) {
+				if (follower.getUserId().equals(vFollower.getUserId())) {
+					existing = true;
+
+					break;
+				}
+			}
+
+			if (existing) {
+				it.remove();
+			} else {
+				vFollowerList.add(follower);
+			}
+		}
+	}
+
+	public void initialize() {
+		objectMapper = new ObjectMapper();
+	}
+
+	public void collectFollowers() {
 		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
 
 		ActiveUser activeUser;
@@ -428,156 +457,7 @@ public class WeiboFollowersIncreasorAction {
 					followerList.addAll(collectedFollowerList);
 				}
 
-				followerSize = 0;
-
-				for (Follower follower : followerList) {
-					try {
-						followerService.addFollower(categoryId, typeId,
-								FollowerPhase.collected, follower);
-
-						followerSize++;
-					} catch (ServiceException e) {
-						logger.error("Exception", e);
-
-						throw new ActionException(e);
-					}
-				}
-
-				logger.debug(String
-						.format("End to collect followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-			}
-		}
-
-		defaultHttpClient.getConnectionManager().shutdown();
-	}
-
-	public void initialize() {
-		objectMapper = new ObjectMapper();
-
-		collectExistingFollowers();
-	}
-
-	public void collectFollowers() {
-		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
-
-		ActiveUser activeUser;
-
-		ActiveUserPhase activeUserPhase = ActiveUserPhase.querying;
-
-		try {
-			activeUser = activeUserService.getActiveUser(activeUserPhase);
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		setCookies(defaultHttpClient, activeUser.getCookies());
-
-		boolean successful = false;
-
-		for (int i = 0; i < 10; i++) {
-			try {
-				weiboHandler.refresh(defaultHttpClient);
-
-				successful = true;
-
-				break;
-			} catch (HandlerException e) {
-				continue;
-			}
-		}
-
-		if (!successful) {
-			return;
-		}
-
-		activeUser.setCookies(getCookies(defaultHttpClient));
-
-		try {
-			activeUserService.updateActiveUser(activeUserPhase, activeUser);
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		try {
-			saeAppBatchhelperHandler.authorize(defaultHttpClient);
-		} catch (HandlerException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		List<Category> categoryList;
-
-		try {
-			categoryList = categoryService.getCategoryList();
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		for (Category category : categoryList) {
-			int categoryId = category.getCategoryId();
-
-			List<Type> typeList;
-
-			try {
-				typeList = typeService.getTypeList(categoryId);
-			} catch (ServiceException e) {
-				logger.error("Exception", e);
-
-				throw new ActionException(e);
-			}
-
-			for (Type type : typeList) {
-				int typeId = type.getTypeId();
-
-				List<Follower> followerList = new ArrayList<Follower>();
-
-				int followerSize = 0;
-
-				logger.debug(String
-						.format("Begin to collect followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-
-				List<CollectedUser> collectedUserList;
-
-				try {
-					collectedUserList = collectedUserService
-							.getCollectedUserList(categoryId, typeId);
-				} catch (ServiceException e) {
-					logger.error("Exception", e);
-
-					throw new ActionException(e);
-				}
-
-				for (CollectedUser collectedUser : collectedUserList) {
-					String userId = collectedUser.getUserId();
-					String userName = collectedUser.getUserName();
-
-					followerSize = 0;
-
-					logger.debug(String
-							.format("Begin to collect followers, categoryId = %s, typeId = %s, userId = %s, followerSize = %s",
-									categoryId, typeId, userId, followerSize));
-
-					List<Follower> collectedFollowerList = getCollectedFollowerListByUserId(
-							defaultHttpClient, categoryId, typeId, userId,
-							userName, 10);
-
-					followerSize = collectedFollowerList.size();
-
-					logger.debug(String
-							.format("End to collect followers, categoryId = %s, typeId = %s, userId = %s, followerSize = %s",
-									categoryId, typeId, userId, followerSize));
-
-					followerList.addAll(collectedFollowerList);
-				}
+				deduplicateCollectedUserList(followerList);
 
 				followerSize = 0;
 
@@ -741,20 +621,30 @@ public class WeiboFollowersIncreasorAction {
 
 				followerSize = 0;
 
+				List<String> userIdList = new ArrayList<String>();
+
+				for (Follower follower : followerList) {
+					userIdList.add(follower.getUserId());
+				}
+
+				Map<String, Integer> statusSizeMap;
+
+				try {
+					statusSizeMap = saeAppBatchhelperHandler.getStatusSizeMap(
+							defaultHttpClient, userIdList);
+				} catch (HandlerException e) {
+					logger.error("Exception", e);
+
+					throw new ActionException(e);
+				}
+
 				for (Follower follower : followerList) {
 					boolean sameFollowerExisting = isSameFollowerExisting(
 							categoryId, typeId, follower);
 
 					if (!sameFollowerExisting) {
-						int statusSize;
-
-						try {
-							statusSize = saeAppBatchhelperHandler
-									.getStatusSize(defaultHttpClient,
-											follower.getUserId());
-						} catch (HandlerException e) {
-							statusSize = 0;
-						}
+						int statusSize = statusSizeMap
+								.get(follower.getUserId());
 
 						if (statusSize >= 10) {
 							try {

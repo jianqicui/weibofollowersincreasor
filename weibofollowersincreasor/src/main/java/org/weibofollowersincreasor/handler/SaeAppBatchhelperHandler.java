@@ -2,8 +2,11 @@ package org.weibofollowersincreasor.handler;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
@@ -140,8 +143,8 @@ public class SaeAppBatchhelperHandler {
 		return followers;
 	}
 
-	public int getStatusSize(HttpClient httpClient, String userId)
-			throws HandlerException {
+	private Map<String, Integer> getStatusSizeMapByRange(HttpClient httpClient,
+			List<String> userIdList) throws HandlerException {
 		byte[] result;
 
 		StringBuilder url = new StringBuilder();
@@ -153,7 +156,7 @@ public class SaeAppBatchhelperHandler {
 		url.append("&");
 		url.append("userIds");
 		url.append("=");
-		url.append(userId);
+		url.append(StringUtils.join(userIdList, ","));
 
 		HttpGet get = new HttpGet(url.toString());
 
@@ -189,15 +192,55 @@ public class SaeAppBatchhelperHandler {
 			throw new HandlerException("GetStatusSize failed");
 		}
 
-		JsonNode jsonNode = arrayNode.get(0);
+		Map<String, Integer> statusSizeMap = new HashMap<String, Integer>();
 
-		JsonNode statusSizeJsonNode = jsonNode.get("statuses_count");
+		for (JsonNode jsonNode : arrayNode) {
+			JsonNode idJsonNode = jsonNode.get("id");
+			JsonNode statusSizeJsonNode = jsonNode.get("statuses_count");
 
-		if (statusSizeJsonNode != null) {
-			return statusSizeJsonNode.asInt();
-		} else {
-			throw new HandlerException("GetStatusSize failed");
+			if (idJsonNode != null && statusSizeJsonNode != null) {
+				String userId = idJsonNode.asText();
+				int statusSize = statusSizeJsonNode.asInt();
+
+				statusSizeMap.put(userId, statusSize);
+			} else {
+				throw new HandlerException("GetStatusSize failed");
+			}
 		}
+
+		return statusSizeMap;
+	}
+
+	public Map<String, Integer> getStatusSizeMap(HttpClient httpClient,
+			List<String> userIdList) throws HandlerException {
+		List<List<String>> userIdListList = new ArrayList<List<String>>();
+
+		int count = 100;
+		int size = userIdList.size() / count;
+
+		int fromIndex;
+		int toIndex;
+
+		for (int i = 0; i <= size; i++) {
+			fromIndex = i * count;
+
+			if (i != size) {
+				toIndex = (i + 1) * count;
+			} else {
+				toIndex = userIdList.size();
+			}
+
+			userIdListList.add(userIdList.subList(fromIndex, toIndex));
+		}
+
+		Map<String, Integer> statusSizeMap = new HashMap<String, Integer>();
+
+		for (List<String> vUserIdList : userIdListList) {
+			statusSizeMap.putAll(getStatusSizeMapByRange(httpClient,
+					vUserIdList));
+		}
+
+		return statusSizeMap;
 	}
 
 }
