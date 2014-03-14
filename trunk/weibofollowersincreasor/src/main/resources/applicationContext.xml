@@ -171,13 +171,13 @@
 		<property name="weiboHandler" ref="weiboHandler" />
 		<property name="saeAppBatchhelperHandler" ref="saeAppBatchhelperHandler" />
 		<property name="filteredFollowerSize">
-			<value>2000</value>
+			<value>2500</value>
 		</property>
 		<property name="followedFollowerSize">
 			<value>25</value>
 		</property>
 		<property name="unfollowedFollowerSize">
-			<value>1400</value>
+			<value>1500</value>
 		</property>
 	</bean>
 	
@@ -187,9 +187,9 @@
 		<task:scheduled ref="weiboFollowersIncreasorAction" method="collectFollowers"
 			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
 		<task:scheduled ref="weiboFollowersIncreasorAction" method="filterFollowers"
-			cron="0 0 1,4,7,10,13,16,19,22 * * ?" />
-		<task:scheduled ref="weiboFollowersIncreasorAction" method="followFollowers"
 			cron="0 0 2,5,8,11,14,17,20,23 * * ?" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="followFollowers"
+			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
 		<task:scheduled ref="weiboFollowersIncreasorAction" method="unfollowFollowers"
 			cron="0 0 0 ? * SUN" />
 	</task:scheduled-tasks>
