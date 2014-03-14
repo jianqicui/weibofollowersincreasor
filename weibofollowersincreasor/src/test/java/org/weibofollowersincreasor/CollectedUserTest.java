@@ -481,15 +481,15 @@ public class CollectedUserTest {
 		List<List<String>> userIdListList = new ArrayList<List<String>>();
 
 		int count = 100;
-		int size = userIdList.size() / count;
+		int size = (userIdList.size() / count) + (userIdList.size() % count == 0 ? 0 : 1);
 
 		int fromIndex;
 		int toIndex;
 
-		for (int i = 0; i <= size; i++) {
+		for (int i = 0; i < size; i++) {
 			fromIndex = i * count;
 
-			if (i != size) {
+			if (i != size - 1) {
 				toIndex = (i + 1) * count;
 			} else {
 				toIndex = userIdList.size();
