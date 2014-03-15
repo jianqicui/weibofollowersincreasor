@@ -7,6 +7,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +79,7 @@ public class WeiboFollowersIncreasorAction {
 
 	private int followedFollowerSize;
 
-	private int unfollowedFollowerSize;
+	private int followedDays;
 
 	private ObjectMapper objectMapper;
 
@@ -120,8 +121,8 @@ public class WeiboFollowersIncreasorAction {
 		this.followedFollowerSize = followedFollowerSize;
 	}
 
-	public void setUnfollowedFollowerSize(int unfollowedFollowerSize) {
-		this.unfollowedFollowerSize = unfollowedFollowerSize;
+	public void setFollowedDays(int followedDays) {
+		this.followedDays = followedDays;
 	}
 
 	public void setObjectMapper(ObjectMapper objectMapper) {
@@ -263,8 +264,8 @@ public class WeiboFollowersIncreasorAction {
 		List<Follower> collectedFollowerList = new ArrayList<Follower>();
 
 		while (true) {
-			List<Follower> vFollowerList;
-			int nextCursor;
+			List<Follower> vFollowerList = null;
+			int nextCursor = 0;
 
 			followerSize = 0;
 
@@ -272,14 +273,26 @@ public class WeiboFollowersIncreasorAction {
 					.format("Begin to collect followers, categoryId = %s, typeId = %s, userId = %s, cursor = %s, followerSize = %s",
 							categoryId, typeId, userId, cursor, followerSize));
 
-			try {
-				Followers followers = saeAppBatchhelperHandler
-						.getFollowersByUserName(httpClient, userName, cursor,
-								size);
+			boolean successful = false;
 
-				vFollowerList = followers.getFollowerList();
-				nextCursor = followers.getNextCursor();
-			} catch (HandlerException e) {
+			for (int i = 0; i < 10; i++) {
+				try {
+					Followers followers = saeAppBatchhelperHandler
+							.getFollowersByUserName(httpClient, userName,
+									cursor, size);
+
+					vFollowerList = followers.getFollowerList();
+					nextCursor = followers.getNextCursor();
+
+					successful = true;
+
+					break;
+				} catch (HandlerException e) {
+					continue;
+				}
+			}
+
+			if (!successful) {
 				vFollowerList = new ArrayList<Follower>();
 				nextCursor = cursor + size;
 			}
@@ -381,12 +394,22 @@ public class WeiboFollowersIncreasorAction {
 			throw new ActionException(e);
 		}
 
-		try {
-			saeAppBatchhelperHandler.authorize(defaultHttpClient);
-		} catch (HandlerException e) {
-			logger.error("Exception", e);
+		successful = false;
 
-			throw new ActionException(e);
+		for (int i = 0; i < 10; i++) {
+			try {
+				saeAppBatchhelperHandler.authorize(defaultHttpClient);
+
+				successful = true;
+
+				break;
+			} catch (HandlerException e) {
+				continue;
+			}
+		}
+
+		if (!successful) {
+			return;
 		}
 
 		List<Category> categoryList;
@@ -567,12 +590,22 @@ public class WeiboFollowersIncreasorAction {
 			throw new ActionException(e);
 		}
 
-		try {
-			saeAppBatchhelperHandler.authorize(defaultHttpClient);
-		} catch (HandlerException e) {
-			logger.error("Exception", e);
+		successful = false;
 
-			throw new ActionException(e);
+		for (int i = 0; i < 10; i++) {
+			try {
+				saeAppBatchhelperHandler.authorize(defaultHttpClient);
+
+				successful = true;
+
+				break;
+			} catch (HandlerException e) {
+				continue;
+			}
+		}
+
+		if (!successful) {
+			return;
 		}
 
 		List<Category> categoryList;
@@ -627,15 +660,25 @@ public class WeiboFollowersIncreasorAction {
 					userIdList.add(follower.getUserId());
 				}
 
-				Map<String, Integer> statusSizeMap;
+				Map<String, Integer> statusSizeMap = null;
 
-				try {
-					statusSizeMap = saeAppBatchhelperHandler.getStatusSizeMap(
-							defaultHttpClient, userIdList);
-				} catch (HandlerException e) {
-					logger.error("Exception", e);
+				successful = false;
 
-					throw new ActionException(e);
+				for (int i = 0; i < 10; i++) {
+					try {
+						statusSizeMap = saeAppBatchhelperHandler
+								.getStatusSizeMap(defaultHttpClient, userIdList);
+
+						successful = true;
+
+						break;
+					} catch (HandlerException e) {
+						continue;
+					}
+				}
+
+				if (!successful) {
+					statusSizeMap = new HashMap<String, Integer>();
 				}
 
 				for (Follower follower : followerList) {
@@ -643,8 +686,14 @@ public class WeiboFollowersIncreasorAction {
 							categoryId, typeId, follower);
 
 					if (!sameFollowerExisting) {
-						int statusSize = statusSizeMap
-								.get(follower.getUserId());
+						int statusSize;
+
+						try {
+							statusSize = statusSizeMap
+									.get(follower.getUserId());
+						} catch (Exception e) {
+							statusSize = 0;
+						}
 
 						if (statusSize >= 10) {
 							try {
@@ -774,18 +823,22 @@ public class WeiboFollowersIncreasorAction {
 					followerSize = 0;
 
 					for (Follower follower : followerList) {
-						try {
-							weiboHandler.follow(defaultHttpClient,
-									follower.getUserId());
+						successful = false;
 
+						for (int i = 0; i < 10; i++) {
 							try {
-								Thread.sleep(10000);
-							} catch (InterruptedException e) {
-								logger.error("Exception", e);
+								weiboHandler.follow(defaultHttpClient,
+										follower.getUserId());
 
-								throw new ActionException(e);
+								successful = true;
+
+								break;
+							} catch (HandlerException e) {
+								continue;
 							}
+						}
 
+						if (successful) {
 							try {
 								followerService.moveFollower(categoryId,
 										typeId, FollowerPhase.filtered,
@@ -801,7 +854,7 @@ public class WeiboFollowersIncreasorAction {
 							logger.debug(String
 									.format("Follow follower successfully, followerUserId = %s",
 											follower.getUserId()));
-						} catch (HandlerException e) {
+						} else {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.filtered,
@@ -815,6 +868,14 @@ public class WeiboFollowersIncreasorAction {
 							logger.debug(String
 									.format("Follow follower failed, followerUserId = %s",
 											follower.getUserId()));
+						}
+
+						try {
+							Thread.sleep(10000);
+						} catch (InterruptedException e) {
+							logger.error("Exception", e);
+
+							throw new ActionException(e);
 						}
 					}
 
@@ -905,9 +966,10 @@ public class WeiboFollowersIncreasorAction {
 					List<Follower> followerList;
 
 					try {
-						followerList = followerService.getFollowerList(
-								categoryId, typeId, FollowerPhase.followed, 0,
-								unfollowedFollowerSize);
+						followerList = followerService
+								.getFollowerListSeveralDaysAgo(categoryId,
+										typeId, FollowerPhase.followed,
+										followedDays);
 					} catch (ServiceException e) {
 						logger.error("Exception", e);
 
@@ -923,18 +985,22 @@ public class WeiboFollowersIncreasorAction {
 					followerSize = 0;
 
 					for (Follower follower : followerList) {
-						try {
-							weiboHandler.unfollow(defaultHttpClient,
-									follower.getUserId());
+						successful = false;
 
+						for (int i = 0; i < 10; i++) {
 							try {
-								Thread.sleep(10000);
-							} catch (InterruptedException e) {
-								logger.error("Exception", e);
+								weiboHandler.unfollow(defaultHttpClient,
+										follower.getUserId());
 
-								throw new ActionException(e);
+								successful = true;
+
+								break;
+							} catch (HandlerException e) {
+								continue;
 							}
+						}
 
+						if (successful) {
 							try {
 								followerService.moveFollower(categoryId,
 										typeId, FollowerPhase.followed,
@@ -950,7 +1016,7 @@ public class WeiboFollowersIncreasorAction {
 							logger.debug(String
 									.format("Unfollow follower successfully, followerUserId = %s",
 											follower.getUserId()));
-						} catch (HandlerException e) {
+						} else {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.followed,
@@ -964,6 +1030,14 @@ public class WeiboFollowersIncreasorAction {
 							logger.debug(String
 									.format("Unfollow follower failed, followerUserId = %s",
 											follower.getUserId()));
+						}
+
+						try {
+							Thread.sleep(10000);
+						} catch (InterruptedException e) {
+							logger.error("Exception", e);
+
+							throw new ActionException(e);
 						}
 					}
 

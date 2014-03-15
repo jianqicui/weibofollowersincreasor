@@ -26,4 +26,7 @@ public interface FollowerService {
 			FollowerPhase fromFollowerPhase, FollowerPhase toFollowerPhase,
 			Follower follower) throws ServiceException;
 
+	List<Follower> getFollowerListSeveralDaysAgo(int categoryId, int typeId,
+			FollowerPhase followerPhase, int days) throws ServiceException;
+
 }

@@ -21,4 +21,7 @@ public interface FollowerDao {
 	void deleteFollower(int categoryId, int typeId,
 			FollowerPhase followerPhase, int id) throws DaoException;
 
+	List<Follower> getFollowerListSeveralDaysAgo(int categoryId, int typeId,
+			FollowerPhase followerPhase, int days) throws DaoException;
+
 }
