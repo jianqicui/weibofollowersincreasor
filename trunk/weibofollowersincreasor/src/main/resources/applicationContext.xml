@@ -176,8 +176,8 @@
 		<property name="followedFollowerSize">
 			<value>25</value>
 		</property>
-		<property name="unfollowedFollowerSize">
-			<value>1500</value>
+		<property name="followedDays">
+			<value>7</value>
 		</property>
 	</bean>
 	
@@ -191,7 +191,7 @@
 		<task:scheduled ref="weiboFollowersIncreasorAction" method="followFollowers"
 			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
 		<task:scheduled ref="weiboFollowersIncreasorAction" method="unfollowFollowers"
-			cron="0 0 0 ? * SUN" />
+			cron="0 0 2,5,8,11,14,17,20,23 * * ?" />
 	</task:scheduled-tasks>
 
 </beans>

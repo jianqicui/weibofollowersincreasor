@@ -87,7 +87,7 @@ public class FollowerJdbcDao implements FollowerDao {
 
 		try {
 			size = jdbcTemplate.queryForObject(sql,
-					new String[] { follower.getUserId() }, Integer.class);
+					new Object[] { follower.getUserId() }, Integer.class);
 		} catch (Exception e) {
 			throw new DaoException(e);
 		}
@@ -104,6 +104,21 @@ public class FollowerJdbcDao implements FollowerDao {
 
 		try {
 			jdbcTemplate.update(sql, id);
+		} catch (Exception e) {
+			throw new DaoException(e);
+		}
+	}
+
+	@Override
+	public List<Follower> getFollowerListSeveralDaysAgo(int categoryId,
+			int typeId, FollowerPhase followerPhase, int days)
+			throws DaoException {
+		String sql = "select id, user_id from "
+				+ getTableName(categoryId, typeId, followerPhase)
+				+ " where datediff(now(), created_timestamp) > ?";
+
+		try {
+			return jdbcTemplate.query(sql, rowMapper, new Object[] { days });
 		} catch (Exception e) {
 			throw new DaoException(e);
 		}
