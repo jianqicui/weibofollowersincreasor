@@ -519,68 +519,6 @@ public class WeiboFollowersIncreasorAction {
 	}
 
 	public void filterFollowers() {
-		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
-
-		ActiveUser activeUser;
-
-		ActiveUserPhase activeUserPhase = ActiveUserPhase.querying;
-
-		try {
-			activeUser = activeUserService.getActiveUser(activeUserPhase);
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		setCookies(defaultHttpClient, activeUser.getCookies());
-
-		boolean successful = false;
-
-		for (int i = 0; i < 10; i++) {
-			try {
-				weiboHandler.refresh(defaultHttpClient);
-
-				successful = true;
-
-				break;
-			} catch (HandlerException e) {
-				continue;
-			}
-		}
-
-		if (!successful) {
-			return;
-		}
-
-		activeUser.setCookies(getCookies(defaultHttpClient));
-
-		try {
-			activeUserService.updateActiveUser(activeUserPhase, activeUser);
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		successful = false;
-
-		for (int i = 0; i < 10; i++) {
-			try {
-				saeAppBatchhelperHandler.authorize(defaultHttpClient);
-
-				successful = true;
-
-				break;
-			} catch (HandlerException e) {
-				continue;
-			}
-		}
-
-		if (!successful) {
-			return;
-		}
-
 		List<Category> categoryList;
 
 		try {
