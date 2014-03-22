@@ -171,7 +171,7 @@
 		<property name="weiboHandler" ref="weiboHandler" />
 		<property name="saeAppBatchhelperHandler" ref="saeAppBatchhelperHandler" />
 		<property name="filteredFollowerSize">
-			<value>2500</value>
+			<value>5000</value>
 		</property>
 		<property name="followedFollowerSize">
 			<value>25</value>
