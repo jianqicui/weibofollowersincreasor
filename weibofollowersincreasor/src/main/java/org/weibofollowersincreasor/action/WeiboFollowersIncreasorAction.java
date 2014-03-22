@@ -7,7 +7,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -256,8 +255,6 @@ public class WeiboFollowersIncreasorAction {
 	private List<Follower> getCollectedFollowerListByUserId(
 			HttpClient httpClient, int categoryId, int typeId, String userId,
 			String userName, int times) {
-		int followerSize;
-
 		int cursor = 0;
 		int size = 100;
 
@@ -266,12 +263,6 @@ public class WeiboFollowersIncreasorAction {
 		while (true) {
 			List<Follower> vFollowerList = null;
 			int nextCursor = 0;
-
-			followerSize = 0;
-
-			logger.debug(String
-					.format("Begin to collect followers, categoryId = %s, typeId = %s, userId = %s, cursor = %s, followerSize = %s",
-							categoryId, typeId, userId, cursor, followerSize));
 
 			boolean successful = false;
 
@@ -298,12 +289,6 @@ public class WeiboFollowersIncreasorAction {
 			}
 
 			times--;
-
-			followerSize = vFollowerList.size();
-
-			logger.debug(String
-					.format("End to collect followers, categoryId = %s, typeId = %s, userId = %s, cursor = %s, followerSize = %s",
-							categoryId, typeId, userId, cursor, followerSize));
 
 			collectedFollowerList.addAll(vFollowerList);
 
@@ -461,21 +446,9 @@ public class WeiboFollowersIncreasorAction {
 					String userId = collectedUser.getUserId();
 					String userName = collectedUser.getUserName();
 
-					followerSize = 0;
-
-					logger.debug(String
-							.format("Begin to collect followers, categoryId = %s, typeId = %s, userId = %s, followerSize = %s",
-									categoryId, typeId, userId, followerSize));
-
 					List<Follower> collectedFollowerList = getCollectedFollowerListByUserId(
 							defaultHttpClient, categoryId, typeId, userId,
 							userName, 50);
-
-					followerSize = collectedFollowerList.size();
-
-					logger.debug(String
-							.format("End to collect followers, categoryId = %s, typeId = %s, userId = %s, followerSize = %s",
-									categoryId, typeId, userId, followerSize));
 
 					followerList.addAll(collectedFollowerList);
 				}
@@ -660,63 +633,21 @@ public class WeiboFollowersIncreasorAction {
 					userIdList.add(follower.getUserId());
 				}
 
-				Map<String, Integer> statusSizeMap = null;
-
-				successful = false;
-
-				for (int i = 0; i < 10; i++) {
-					try {
-						statusSizeMap = saeAppBatchhelperHandler
-								.getStatusSizeMap(defaultHttpClient, userIdList);
-
-						successful = true;
-
-						break;
-					} catch (HandlerException e) {
-						continue;
-					}
-				}
-
-				if (!successful) {
-					statusSizeMap = new HashMap<String, Integer>();
-				}
-
 				for (Follower follower : followerList) {
 					boolean sameFollowerExisting = isSameFollowerExisting(
 							categoryId, typeId, follower);
 
 					if (!sameFollowerExisting) {
-						int statusSize;
-
 						try {
-							statusSize = statusSizeMap
-									.get(follower.getUserId());
-						} catch (Exception e) {
-							statusSize = 0;
-						}
+							followerService.moveFollower(categoryId, typeId,
+									FollowerPhase.collected,
+									FollowerPhase.filtered, follower);
 
-						if (statusSize >= 10) {
-							try {
-								followerService.moveFollower(categoryId,
-										typeId, FollowerPhase.collected,
-										FollowerPhase.filtered, follower);
+							followerSize++;
+						} catch (ServiceException e) {
+							logger.error("Exception", e);
 
-								followerSize++;
-							} catch (ServiceException e) {
-								logger.error("Exception", e);
-
-								throw new ActionException(e);
-							}
-						} else {
-							try {
-								followerService.deleteFollower(categoryId,
-										typeId, FollowerPhase.collected,
-										follower.getId());
-							} catch (ServiceException e) {
-								logger.error("Exception", e);
-
-								throw new ActionException(e);
-							}
+							throw new ActionException(e);
 						}
 					} else {
 						try {
@@ -814,13 +745,13 @@ public class WeiboFollowersIncreasorAction {
 						throw new ActionException(e);
 					}
 
-					int followerSize = followerList.size();
+					int successfulFollowedSize = 0;
+					int failedFollowedSize = 0;
 
 					logger.debug(String
-							.format("Begin to follow followers, categoryId = %s, typeId = %s, followerSize = %s",
-									categoryId, typeId, followerSize));
-
-					followerSize = 0;
+							.format("Begin to follow followers, categoryId = %s, typeId = %s, successfulFollowedSize = %s, failedFollowedSize = %s",
+									categoryId, typeId, successfulFollowedSize,
+									failedFollowedSize));
 
 					for (Follower follower : followerList) {
 						successful = false;
@@ -844,34 +775,28 @@ public class WeiboFollowersIncreasorAction {
 										typeId, FollowerPhase.filtered,
 										FollowerPhase.followed, follower);
 
-								followerSize++;
+								successfulFollowedSize++;
 							} catch (ServiceException e) {
 								logger.error("Exception", e);
 
 								throw new ActionException(e);
 							}
-
-							logger.debug(String
-									.format("Follow follower successfully, followerUserId = %s",
-											follower.getUserId()));
 						} else {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.filtered,
 										follower.getId());
+
+								failedFollowedSize++;
 							} catch (ServiceException ex) {
 								logger.error("Exception", ex);
 
 								throw new ActionException(ex);
 							}
-
-							logger.debug(String
-									.format("Follow follower failed, followerUserId = %s",
-											follower.getUserId()));
 						}
 
 						try {
-							Thread.sleep(10000);
+							Thread.sleep(30000);
 						} catch (InterruptedException e) {
 							logger.error("Exception", e);
 
@@ -880,8 +805,9 @@ public class WeiboFollowersIncreasorAction {
 					}
 
 					logger.debug(String
-							.format("End to follow followers, categoryId = %s, typeId = %s, followerSize = %s",
-									categoryId, typeId, followerSize));
+							.format("End to follow followers, categoryId = %s, typeId = %s, successfulFollowedSize = %s, failedFollowedSize = %s",
+									categoryId, typeId, successfulFollowedSize,
+									failedFollowedSize));
 				}
 
 				try {
@@ -976,13 +902,14 @@ public class WeiboFollowersIncreasorAction {
 						throw new ActionException(e);
 					}
 
-					int followerSize = followerList.size();
+					int successfulUnfollowedSize = 0;
+					int failedUnfollowedSize = 0;
 
 					logger.debug(String
-							.format("Begin to unfollow followers, categoryId = %s, typeId = %s, followerSize = %s",
-									categoryId, typeId, followerSize));
-
-					followerSize = 0;
+							.format("Begin to unfollow followers, categoryId = %s, typeId = %s, successfulUnfollowedSize = %s, failedUnfollowedSize = %s",
+									categoryId, typeId,
+									successfulUnfollowedSize,
+									failedUnfollowedSize));
 
 					for (Follower follower : followerList) {
 						successful = false;
@@ -1006,34 +933,28 @@ public class WeiboFollowersIncreasorAction {
 										typeId, FollowerPhase.followed,
 										FollowerPhase.unfollowed, follower);
 
-								followerSize++;
+								successfulUnfollowedSize++;
 							} catch (ServiceException e) {
 								logger.error("Exception", e);
 
 								throw new ActionException(e);
 							}
-
-							logger.debug(String
-									.format("Unfollow follower successfully, followerUserId = %s",
-											follower.getUserId()));
 						} else {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.followed,
 										follower.getId());
+
+								failedUnfollowedSize++;
 							} catch (ServiceException ex) {
 								logger.error("Exception", ex);
 
 								throw new ActionException(ex);
 							}
-
-							logger.debug(String
-									.format("Unfollow follower failed, followerUserId = %s",
-											follower.getUserId()));
 						}
 
 						try {
-							Thread.sleep(10000);
+							Thread.sleep(30000);
 						} catch (InterruptedException e) {
 							logger.error("Exception", e);
 
@@ -1042,8 +963,10 @@ public class WeiboFollowersIncreasorAction {
 					}
 
 					logger.debug(String
-							.format("End to unfollow followers, categoryId = %s, typeId = %s, followerSize = %s",
-									categoryId, typeId, followerSize));
+							.format("End to unfollow followers, categoryId = %s, typeId = %s, successfulUnfollowedSize = %s, failedUnfollowedSize = %s",
+									categoryId, typeId,
+									successfulUnfollowedSize,
+									failedUnfollowedSize));
 				}
 
 				try {
