@@ -179,6 +179,9 @@
 		<property name="followedDays">
 			<value>7</value>
 		</property>
+		<property name="unfollowedFollowerSize">
+			<value>50</value>
+		</property>
 	</bean>
 	
 	<!-- Task -->

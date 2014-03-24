@@ -66,11 +66,12 @@ public class FollowerJdbcDao implements FollowerDao {
 			FollowerPhase followerPhase, int index, int size)
 			throws DaoException {
 		String sql = "select id, user_id from "
-				+ getTableName(categoryId, typeId, followerPhase) + " limit "
-				+ index + ", " + size;
+				+ getTableName(categoryId, typeId, followerPhase)
+				+ " limit ?, ?";
 
 		try {
-			return jdbcTemplate.query(sql, rowMapper);
+			return jdbcTemplate.query(sql, rowMapper, new Object[] { index,
+					size });
 		} catch (Exception e) {
 			throw new DaoException(e);
 		}
@@ -110,15 +111,16 @@ public class FollowerJdbcDao implements FollowerDao {
 	}
 
 	@Override
-	public List<Follower> getFollowerListSeveralDaysAgo(int categoryId,
-			int typeId, FollowerPhase followerPhase, int days)
+	public List<Follower> getFollowerListBeforeDays(int categoryId, int typeId,
+			FollowerPhase followerPhase, int days, int index, int size)
 			throws DaoException {
 		String sql = "select id, user_id from "
 				+ getTableName(categoryId, typeId, followerPhase)
-				+ " where datediff(now(), created_timestamp) > ?";
+				+ " where datediff(now(), created_timestamp) >= ? limit ?, ?";
 
 		try {
-			return jdbcTemplate.query(sql, rowMapper, new Object[] { days });
+			return jdbcTemplate.query(sql, rowMapper, new Object[] { days,
+					index, size });
 		} catch (Exception e) {
 			throw new DaoException(e);
 		}
