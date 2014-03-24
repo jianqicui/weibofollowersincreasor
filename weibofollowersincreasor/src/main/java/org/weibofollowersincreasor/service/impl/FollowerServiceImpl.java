@@ -80,12 +80,12 @@ public class FollowerServiceImpl implements FollowerService {
 	}
 
 	@Override
-	public List<Follower> getFollowerListSeveralDaysAgo(int categoryId,
-			int typeId, FollowerPhase followerPhase, int days)
+	public List<Follower> getFollowerListBeforeDays(int categoryId, int typeId,
+			FollowerPhase followerPhase, int days, int index, int size)
 			throws ServiceException {
 		try {
-			return followerDao.getFollowerListSeveralDaysAgo(categoryId,
-					typeId, followerPhase, days);
+			return followerDao.getFollowerListBeforeDays(categoryId, typeId,
+					followerPhase, days, index, size);
 		} catch (DaoException e) {
 			throw new ServiceException(e);
 		}

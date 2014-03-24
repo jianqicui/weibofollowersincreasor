@@ -80,6 +80,8 @@ public class WeiboFollowersIncreasorAction {
 
 	private int followedDays;
 
+	private int unfollowedFollowerSize;
+
 	private ObjectMapper objectMapper;
 
 	public void setActiveUserService(ActiveUserService activeUserService) {
@@ -122,6 +124,10 @@ public class WeiboFollowersIncreasorAction {
 
 	public void setFollowedDays(int followedDays) {
 		this.followedDays = followedDays;
+	}
+
+	public void setUnfollowedFollowerSize(int unfollowedFollowerSize) {
+		this.unfollowedFollowerSize = unfollowedFollowerSize;
 	}
 
 	public void setObjectMapper(ObjectMapper objectMapper) {
@@ -831,9 +837,9 @@ public class WeiboFollowersIncreasorAction {
 
 					try {
 						followerList = followerService
-								.getFollowerListSeveralDaysAgo(categoryId,
-										typeId, FollowerPhase.followed,
-										followedDays);
+								.getFollowerListBeforeDays(categoryId, typeId,
+										FollowerPhase.followed, followedDays,
+										0, unfollowedFollowerSize);
 					} catch (ServiceException e) {
 						logger.error("Exception", e);
 
