@@ -18,6 +18,8 @@ import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.params.ClientPNames;
+import org.apache.http.client.params.CookiePolicy;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
@@ -26,7 +28,7 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
-import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.http.impl.cookie.BasicClientCookie2;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreConnectionPNames;
 import org.slf4j.Logger;
@@ -180,6 +182,8 @@ public class WeiboFollowersIncreasorAction {
 
 		BasicHttpParams basicHttpParams = new BasicHttpParams();
 
+		basicHttpParams.setParameter(ClientPNames.COOKIE_POLICY,
+				CookiePolicy.BROWSER_COMPATIBILITY);
 		basicHttpParams.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT,
 				600000);
 		basicHttpParams.setParameter(CoreConnectionPNames.SO_TIMEOUT, 600000);
@@ -213,28 +217,51 @@ public class WeiboFollowersIncreasorAction {
 		for (Map<String, Object> map : list) {
 			String name = (String) map.get("name");
 			String value = (String) map.get("value");
-			String path = (String) map.get("path");
+
 			String comment = (String) map.get("comment");
-			int version = (int) map.get("version");
 			String domain = (String) map.get("domain");
-			boolean secure = (boolean) map.get("secure");
 
 			Date expiryDate = null;
-
 			if (map.get("expiryDate") != null) {
 				expiryDate = new Date((long) map.get("expiryDate"));
 			}
 
-			BasicClientCookie basicClientCookie = new BasicClientCookie(name,
-					value);
-			basicClientCookie.setPath(path);
-			basicClientCookie.setComment(comment);
-			basicClientCookie.setVersion(version);
-			basicClientCookie.setDomain(domain);
-			basicClientCookie.setSecure(secure);
-			basicClientCookie.setExpiryDate(expiryDate);
+			String path = (String) map.get("path");
+			boolean secure = (boolean) map.get("secure");
+			int version = (int) map.get("version");
 
-			basicCookieStore.addCookie(basicClientCookie);
+			String commentURL = (String) map.get("commentURL");
+
+			int[] ports = null;
+			if (map.get("ports") != null) {
+				String[] portsStrings = ((String) map.get("ports")).split(",");
+
+				ports = new int[portsStrings.length];
+
+				for (int i = 0; i < portsStrings.length; i++) {
+					String portString = portsStrings[i];
+
+					ports[i] = Integer.parseInt(portString);
+				}
+			}
+
+			boolean persistent = (boolean) map.get("persistent");
+
+			BasicClientCookie2 basicClientCookie2 = new BasicClientCookie2(
+					name, value);
+
+			basicClientCookie2.setComment(comment);
+			basicClientCookie2.setDomain(domain);
+			basicClientCookie2.setExpiryDate(expiryDate);
+			basicClientCookie2.setPath(path);
+			basicClientCookie2.setSecure(secure);
+			basicClientCookie2.setVersion(version);
+
+			basicClientCookie2.setCommentURL(commentURL);
+			basicClientCookie2.setPorts(ports);
+			basicClientCookie2.setDiscard(persistent);
+
+			basicCookieStore.addCookie(basicClientCookie2);
 		}
 
 		defaultHttpClient.setCookieStore(basicCookieStore);
