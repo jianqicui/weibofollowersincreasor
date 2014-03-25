@@ -86,6 +86,8 @@ public class WeiboFollowersIncreasorAction {
 
 	private ObjectMapper objectMapper;
 
+	private DefaultHttpClient defaultHttpClient;
+
 	public void setActiveUserService(ActiveUserService activeUserService) {
 		this.activeUserService = activeUserService;
 	}
@@ -132,8 +134,14 @@ public class WeiboFollowersIncreasorAction {
 		this.unfollowedFollowerSize = unfollowedFollowerSize;
 	}
 
-	public void setObjectMapper(ObjectMapper objectMapper) {
-		this.objectMapper = objectMapper;
+	public void initialize() {
+		objectMapper = new ObjectMapper();
+
+		defaultHttpClient = getDefaultHttpClient();
+	}
+
+	public void destroy() {
+		defaultHttpClient.getConnectionManager().shutdown();
 	}
 
 	private DefaultHttpClient getDefaultHttpClient() {
@@ -363,13 +371,7 @@ public class WeiboFollowersIncreasorAction {
 		}
 	}
 
-	public void initialize() {
-		objectMapper = new ObjectMapper();
-	}
-
 	public void collectFollowers() {
-		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
-
 		ActiveUser activeUser;
 
 		ActiveUserPhase activeUserPhase = ActiveUserPhase.querying;
@@ -508,8 +510,6 @@ public class WeiboFollowersIncreasorAction {
 								categoryId, typeId, followerSize));
 			}
 		}
-
-		defaultHttpClient.getConnectionManager().shutdown();
 	}
 
 	private boolean isSameFollowerExisting(int categoryId, int typeId,
@@ -640,8 +640,6 @@ public class WeiboFollowersIncreasorAction {
 	}
 
 	public void followFollowers() {
-		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
-
 		List<Category> categoryList;
 
 		try {
@@ -791,13 +789,9 @@ public class WeiboFollowersIncreasorAction {
 				}
 			}
 		}
-
-		defaultHttpClient.getConnectionManager().shutdown();
 	}
 
 	public void unfollowFollowers() {
-		DefaultHttpClient defaultHttpClient = getDefaultHttpClient();
-
 		List<Category> categoryList;
 
 		try {
@@ -950,8 +944,6 @@ public class WeiboFollowersIncreasorAction {
 				}
 			}
 		}
-
-		defaultHttpClient.getConnectionManager().shutdown();
 	}
 
 }

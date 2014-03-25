@@ -162,7 +162,7 @@
 	<!-- Action -->
 	<bean id="weiboFollowersIncreasorAction"
 		class="org.weibofollowersincreasor.action.WeiboFollowersIncreasorAction"
-		init-method="initialize">
+		init-method="initialize" destroy-method="destroy">
 		<property name="activeUserService" ref="activeUserService" />
 		<property name="categoryService" ref="categoryService" />
 		<property name="typeService" ref="typeService" />
