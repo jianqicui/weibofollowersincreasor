@@ -86,7 +86,11 @@ public class WeiboFollowersIncreasorAction {
 
 	private ObjectMapper objectMapper;
 
-	private DefaultHttpClient defaultHttpClient;
+	private DefaultHttpClient collectingDefaultHttpClient;
+
+	private DefaultHttpClient followingDefaultHttpClient;
+
+	private DefaultHttpClient unfollowingDefaultHttpClient;
 
 	public void setActiveUserService(ActiveUserService activeUserService) {
 		this.activeUserService = activeUserService;
@@ -137,11 +141,15 @@ public class WeiboFollowersIncreasorAction {
 	public void initialize() {
 		objectMapper = new ObjectMapper();
 
-		defaultHttpClient = getDefaultHttpClient();
+		collectingDefaultHttpClient = getDefaultHttpClient();
+		followingDefaultHttpClient = getDefaultHttpClient();
+		unfollowingDefaultHttpClient = getDefaultHttpClient();
 	}
 
 	public void destroy() {
-		defaultHttpClient.getConnectionManager().shutdown();
+		collectingDefaultHttpClient.getConnectionManager().shutdown();
+		followingDefaultHttpClient.getConnectionManager().shutdown();
+		unfollowingDefaultHttpClient.getConnectionManager().shutdown();
 	}
 
 	private DefaultHttpClient getDefaultHttpClient() {
@@ -294,37 +302,26 @@ public class WeiboFollowersIncreasorAction {
 	}
 
 	private List<Follower> getCollectedFollowerListByUserId(
-			HttpClient httpClient, int categoryId, int typeId, String userId,
-			String userName, int times) {
+			HttpClient httpClient,
+			SaeAppBatchhelperHandler saeAppBatchhelperHandler, int categoryId,
+			int typeId, String userId, String userName, int times) {
 		int cursor = 0;
 		int size = 100;
 
 		List<Follower> collectedFollowerList = new ArrayList<Follower>();
 
 		while (true) {
-			List<Follower> vFollowerList = null;
-			int nextCursor = 0;
+			List<Follower> vFollowerList;
+			int nextCursor;
 
-			boolean successful = false;
+			try {
+				Followers followers = saeAppBatchhelperHandler
+						.getFollowersByUserName(httpClient, userName, cursor,
+								size);
 
-			for (int i = 0; i < 10; i++) {
-				try {
-					Followers followers = saeAppBatchhelperHandler
-							.getFollowersByUserName(httpClient, userName,
-									cursor, size);
-
-					vFollowerList = followers.getFollowerList();
-					nextCursor = followers.getNextCursor();
-
-					successful = true;
-
-					break;
-				} catch (HandlerException e) {
-					continue;
-				}
-			}
-
-			if (!successful) {
+				vFollowerList = followers.getFollowerList();
+				nextCursor = followers.getNextCursor();
+			} catch (HandlerException e) {
 				vFollowerList = new ArrayList<Follower>();
 				nextCursor = cursor + size;
 			}
@@ -341,6 +338,14 @@ public class WeiboFollowersIncreasorAction {
 				break;
 			} else {
 				cursor = nextCursor;
+			}
+
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				logger.error("Exception", e);
+
+				throw new ActionException(e);
 			}
 		}
 
@@ -384,27 +389,15 @@ public class WeiboFollowersIncreasorAction {
 			throw new ActionException(e);
 		}
 
-		setCookies(defaultHttpClient, activeUser.getCookies());
+		setCookies(collectingDefaultHttpClient, activeUser.getCookies());
 
-		boolean successful = false;
-
-		for (int i = 0; i < 10; i++) {
-			try {
-				weiboHandler.refresh(defaultHttpClient);
-
-				successful = true;
-
-				break;
-			} catch (HandlerException e) {
-				continue;
-			}
-		}
-
-		if (!successful) {
+		try {
+			weiboHandler.refresh(collectingDefaultHttpClient);
+		} catch (HandlerException e) {
 			return;
 		}
 
-		activeUser.setCookies(getCookies(defaultHttpClient));
+		activeUser.setCookies(getCookies(collectingDefaultHttpClient));
 
 		try {
 			activeUserService.updateActiveUser(activeUserPhase, activeUser);
@@ -414,21 +407,9 @@ public class WeiboFollowersIncreasorAction {
 			throw new ActionException(e);
 		}
 
-		successful = false;
-
-		for (int i = 0; i < 10; i++) {
-			try {
-				saeAppBatchhelperHandler.authorize(defaultHttpClient);
-
-				successful = true;
-
-				break;
-			} catch (HandlerException e) {
-				continue;
-			}
-		}
-
-		if (!successful) {
+		try {
+			saeAppBatchhelperHandler.authorize(collectingDefaultHttpClient);
+		} catch (HandlerException e) {
 			return;
 		}
 
@@ -482,8 +463,9 @@ public class WeiboFollowersIncreasorAction {
 					String userName = collectedUser.getUserName();
 
 					List<Follower> collectedFollowerList = getCollectedFollowerListByUserId(
-							defaultHttpClient, categoryId, typeId, userId,
-							userName, 50);
+							collectingDefaultHttpClient,
+							saeAppBatchhelperHandler, categoryId, typeId,
+							userId, userName, 50);
 
 					followerList.addAll(collectedFollowerList);
 				}
@@ -680,27 +662,17 @@ public class WeiboFollowersIncreasorAction {
 				}
 
 				for (ActiveUser activeUser : activeUserList) {
-					setCookies(defaultHttpClient, activeUser.getCookies());
+					setCookies(followingDefaultHttpClient,
+							activeUser.getCookies());
 
-					boolean successful = false;
-
-					for (int i = 0; i < 10; i++) {
-						try {
-							weiboHandler.refresh(defaultHttpClient);
-
-							successful = true;
-
-							break;
-						} catch (HandlerException e) {
-							continue;
-						}
-					}
-
-					if (!successful) {
+					try {
+						weiboHandler.refresh(followingDefaultHttpClient);
+					} catch (HandlerException e) {
 						continue;
 					}
 
-					activeUser.setCookies(getCookies(defaultHttpClient));
+					activeUser
+							.setCookies(getCookies(followingDefaultHttpClient));
 
 					List<Follower> followerList;
 
@@ -723,22 +695,10 @@ public class WeiboFollowersIncreasorAction {
 									failedFollowedSize));
 
 					for (Follower follower : followerList) {
-						successful = false;
+						try {
+							weiboHandler.follow(followingDefaultHttpClient,
+									follower.getUserId());
 
-						for (int i = 0; i < 10; i++) {
-							try {
-								weiboHandler.follow(defaultHttpClient,
-										follower.getUserId());
-
-								successful = true;
-
-								break;
-							} catch (HandlerException e) {
-								continue;
-							}
-						}
-
-						if (successful) {
 							try {
 								followerService.moveFollower(categoryId,
 										typeId, FollowerPhase.filtered,
@@ -750,7 +710,7 @@ public class WeiboFollowersIncreasorAction {
 
 								throw new ActionException(e);
 							}
-						} else {
+						} catch (HandlerException e) {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.filtered,
@@ -765,7 +725,7 @@ public class WeiboFollowersIncreasorAction {
 						}
 
 						try {
-							Thread.sleep(30000);
+							Thread.sleep(10000);
 						} catch (InterruptedException e) {
 							logger.error("Exception", e);
 
@@ -832,27 +792,17 @@ public class WeiboFollowersIncreasorAction {
 				}
 
 				for (ActiveUser activeUser : activeUserList) {
-					setCookies(defaultHttpClient, activeUser.getCookies());
+					setCookies(unfollowingDefaultHttpClient,
+							activeUser.getCookies());
 
-					boolean successful = false;
-
-					for (int i = 0; i < 10; i++) {
-						try {
-							weiboHandler.refresh(defaultHttpClient);
-
-							successful = true;
-
-							break;
-						} catch (HandlerException e) {
-							continue;
-						}
-					}
-
-					if (!successful) {
+					try {
+						weiboHandler.refresh(unfollowingDefaultHttpClient);
+					} catch (HandlerException e) {
 						continue;
 					}
 
-					activeUser.setCookies(getCookies(defaultHttpClient));
+					activeUser
+							.setCookies(getCookies(unfollowingDefaultHttpClient));
 
 					List<Follower> followerList;
 
@@ -877,22 +827,10 @@ public class WeiboFollowersIncreasorAction {
 									failedUnfollowedSize));
 
 					for (Follower follower : followerList) {
-						successful = false;
+						try {
+							weiboHandler.unfollow(unfollowingDefaultHttpClient,
+									follower.getUserId());
 
-						for (int i = 0; i < 10; i++) {
-							try {
-								weiboHandler.unfollow(defaultHttpClient,
-										follower.getUserId());
-
-								successful = true;
-
-								break;
-							} catch (HandlerException e) {
-								continue;
-							}
-						}
-
-						if (successful) {
 							try {
 								followerService.moveFollower(categoryId,
 										typeId, FollowerPhase.followed,
@@ -904,7 +842,7 @@ public class WeiboFollowersIncreasorAction {
 
 								throw new ActionException(e);
 							}
-						} else {
+						} catch (HandlerException e) {
 							try {
 								followerService.deleteFollower(categoryId,
 										typeId, FollowerPhase.followed,
@@ -919,7 +857,7 @@ public class WeiboFollowersIncreasorAction {
 						}
 
 						try {
-							Thread.sleep(30000);
+							Thread.sleep(10000);
 						} catch (InterruptedException e) {
 							logger.error("Exception", e);
 
