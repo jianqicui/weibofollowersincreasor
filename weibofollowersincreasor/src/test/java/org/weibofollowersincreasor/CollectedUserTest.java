@@ -156,29 +156,6 @@ public class CollectedUserTest {
 
 	}
 
-	private class Users {
-
-		private int nextCursor;
-		private List<User> userList;
-
-		public int getNextCursor() {
-			return nextCursor;
-		}
-
-		public void setNextCursor(int nextCursor) {
-			this.nextCursor = nextCursor;
-		}
-
-		public List<User> getUserList() {
-			return userList;
-		}
-
-		public void setUserList(List<User> userList) {
-			this.userList = userList;
-		}
-
-	}
-
 	private List<User> getUserList(String userIdNames) {
 		List<User> userList = new ArrayList<User>();
 
@@ -330,128 +307,6 @@ public class CollectedUserTest {
 		loginWeibo(query);
 	}
 
-	private Users getFriendsByUserName(String userName, int cursor, int size) {
-		byte[] result = null;
-
-		StringBuilder url = new StringBuilder();
-		url.append("http://batchhelper.sinaapp.com/action.php");
-		url.append("?");
-		url.append("action");
-		url.append("=");
-		url.append("queryFriends");
-		url.append("&");
-		url.append("userName");
-		url.append("=");
-		url.append(userName);
-		url.append("&");
-		url.append("cursor");
-		url.append("=");
-		url.append(cursor);
-		url.append("&");
-		url.append("count");
-		url.append("=");
-		url.append(size);
-
-		HttpGet get = new HttpGet(url.toString());
-
-		try {
-			HttpResponse response = defaultHttpClient.execute(get);
-
-			int statusCode = response.getStatusLine().getStatusCode();
-
-			if (statusCode == HttpStatus.SC_OK) {
-				result = EntityUtils.toByteArray(response.getEntity());
-			}
-		} catch (ClientProtocolException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			get.releaseConnection();
-		}
-
-		JsonNode jsonNode = null;
-
-		try {
-			jsonNode = objectMapper.readTree(result);
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		Users friends = new Users();
-
-		JsonNode nextCursorJsonNode = jsonNode.get("nextCursor");
-
-		if (nextCursorJsonNode != null) {
-			int nextCursor = nextCursorJsonNode.asInt();
-
-			friends.setNextCursor(nextCursor);
-		}
-
-		ArrayNode usersArrayNode = (ArrayNode) jsonNode.get("users");
-
-		if (usersArrayNode != null) {
-			List<User> friendList = new ArrayList<User>();
-
-			for (int i = 0; i < usersArrayNode.size(); i++) {
-				JsonNode userNode = usersArrayNode.get(i);
-
-				String id = userNode.get("id").asText();
-				String screenName = userNode.get("screenName").asText();
-
-				User friend = new User();
-				friend.setUserId(id);
-				friend.setUserName(screenName);
-
-				friendList.add(friend);
-			}
-
-			friends.setUserList(friendList);
-		}
-
-		return friends;
-	}
-
-	private List<User> getFriendListByUserName(String userName) {
-		int cursor = 0;
-		int size = 100;
-
-		List<User> friendList = new ArrayList<User>();
-
-		while (true) {
-			Users friends = getFriendsByUserName(userName, cursor, size);
-
-			List<User> vFollowerList = friends.getUserList();
-			int nextCursor = friends.getNextCursor();
-
-			friendList.addAll(vFollowerList);
-
-			if (nextCursor == 0) {
-				break;
-			} else {
-				cursor = nextCursor;
-			}
-		}
-
-		return friendList;
-	}
-
-	private List<User> getCollectedUserList(List<User> userList) {
-		List<User> collectedUserList = new ArrayList<User>();
-
-		for (User user : userList) {
-			collectedUserList.add(user);
-
-			List<User> friendList = getFriendListByUserName(user.getUserName());
-
-			collectedUserList.addAll(friendList);
-		}
-
-		return collectedUserList;
-	}
-
 	private void deduplicateCollectedUserList(List<User> collectedUserList) {
 		List<User> vCollectedUserList = new ArrayList<User>();
 
@@ -481,7 +336,8 @@ public class CollectedUserTest {
 		List<List<String>> userIdListList = new ArrayList<List<String>>();
 
 		int count = 100;
-		int size = (userIdList.size() / count) + (userIdList.size() % count == 0 ? 0 : 1);
+		int size = (userIdList.size() / count)
+				+ (userIdList.size() % count == 0 ? 0 : 1);
 
 		int fromIndex;
 		int toIndex;
@@ -636,9 +492,7 @@ public class CollectedUserTest {
 	}
 
 	private List<User> getCandidateCollectedUserList(String userIdNames) {
-		List<User> userList = getUserList(userIdNames);
-
-		List<User> collectedUserList = getCollectedUserList(userList);
+		List<User> collectedUserList = getUserList(userIdNames);
 
 		System.out.println(String.format("GetCollectedUserListSize = %s",
 				collectedUserList.size()));
