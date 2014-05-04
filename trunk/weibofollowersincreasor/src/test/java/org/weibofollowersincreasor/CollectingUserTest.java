@@ -5,19 +5,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
@@ -34,14 +31,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
-public class CollectedUserTest {
+public class CollectingUserTest {
 
 	private ObjectMapper objectMapper;
 
 	private DefaultHttpClient defaultHttpClient;
 
 	@SuppressWarnings("unchecked")
-	public CollectedUserTest(String cookiesFile) {
+	public CollectingUserTest(String cookiesFile) {
 		objectMapper = new ObjectMapper();
 
 		defaultHttpClient = new DefaultHttpClient();
@@ -185,153 +182,6 @@ public class CollectedUserTest {
 		return userIdList;
 	}
 
-	private JsonNode getJsonNode(String result) {
-		int beginIndex = result.indexOf("(");
-		int endIndex = result.lastIndexOf(")");
-
-		JsonNode jsonNode = null;
-
-		try {
-			jsonNode = objectMapper.readTree(result.substring(beginIndex + 1,
-					endIndex));
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		return jsonNode;
-	}
-
-	private String get(String url) {
-		String result = null;
-
-		HttpGet get = new HttpGet(url);
-
-		try {
-			HttpResponse response = defaultHttpClient.execute(get);
-
-			int statusCode = response.getStatusLine().getStatusCode();
-
-			if (statusCode == HttpStatus.SC_OK) {
-				result = EntityUtils.toString(response.getEntity(), "UTF-8");
-			}
-		} catch (ClientProtocolException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			get.releaseConnection();
-		}
-
-		return result;
-	}
-
-	private String crossDomain() {
-		StringBuilder url = new StringBuilder();
-
-		url.append("http://login.sina.com.cn/sso/crossdomain.php");
-		url.append("?");
-		url.append("scriptId");
-		url.append("=");
-		url.append("ssoCrossDomainScriptId");
-		url.append("&");
-		url.append("callback");
-		url.append("=");
-		url.append("sinaSSOController.crossDomainCallBack");
-		url.append("&");
-		url.append("action");
-		url.append("=");
-		url.append("login");
-		url.append("&");
-		url.append("domain");
-		url.append("=");
-		url.append("sina.com.cn");
-		url.append("&");
-		url.append("sr");
-		url.append("=");
-		url.append("1440*900");
-		url.append("&");
-		url.append("client");
-		url.append("=");
-		url.append("ssologin.js(v1.4.13)");
-
-		String result = get(url.toString());
-
-		return result;
-	}
-
-	private String loginWeibo(String query) {
-		StringBuilder url = new StringBuilder();
-
-		url.append("http://www.weibo.com/sso/login.php");
-		url.append("?");
-		url.append(query);
-		url.append("&");
-		url.append("callback");
-		url.append("=");
-		url.append("sinaSSOController.doCrossDomainCallBack");
-		url.append("&");
-		url.append("scriptId");
-		url.append("=");
-		url.append("ssoscript0");
-		url.append("&");
-		url.append("client");
-		url.append("=");
-		url.append("ssologin.js(v1.4.13)");
-
-		String result = get(url.toString());
-
-		return result;
-	}
-
-	private void refresh() {
-		// crossDomain
-		String result = crossDomain();
-
-		JsonNode jsonNode = getJsonNode(result);
-
-		String arrUrl = ((ArrayNode) jsonNode.get("arrURL")).get(0).asText();
-
-		String query = null;
-
-		try {
-			URI uri = new URI(arrUrl);
-
-			query = uri.getQuery();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
-
-		// loginWeibo
-		loginWeibo(query);
-	}
-
-	private void deduplicateCollectedUserList(List<User> collectedUserList) {
-		List<User> vCollectedUserList = new ArrayList<User>();
-
-		for (Iterator<User> it = collectedUserList.iterator(); it.hasNext();) {
-			User collectedUser = it.next();
-
-			boolean existing = false;
-
-			for (User vCollectedUser : vCollectedUserList) {
-				if (collectedUser.getUserId()
-						.equals(vCollectedUser.getUserId())) {
-					existing = true;
-
-					break;
-				}
-			}
-
-			if (existing) {
-				it.remove();
-			} else {
-				vCollectedUserList.add(collectedUser);
-			}
-		}
-	}
-
 	private List<List<String>> getUserIdListList(List<String> userIdList) {
 		List<List<String>> userIdListList = new ArrayList<List<String>>();
 
@@ -416,33 +266,21 @@ public class CollectedUserTest {
 		return followerSizeMap;
 	}
 
-	private void increaseSamplesForCollectedUserList(
-			List<User> collectedUserList) {
-		List<String> collectedUserIdList = getUserIdList(collectedUserList);
-		List<List<String>> collectedUserIdListList = getUserIdListList(collectedUserIdList);
+	private void increaseSamplesForUserList(List<User> userList) {
+		List<String> userIdList = getUserIdList(userList);
+		List<List<String>> userIdListList = getUserIdListList(userIdList);
 
-		for (int i = 0; i < 25; i++) {
-			System.out.println(String.format(
-					"Begin increaseSamplesForCollectedUserList, i = %s, %s", i,
-					new Date()));
-
-			refresh();
-
+		for (int i = 0; i < 2; i++) {
 			Map<String, Integer> followerSizeMap = new HashMap<String, Integer>();
 
-			for (List<String> userIdList : collectedUserIdListList) {
-				followerSizeMap.putAll(getFollowerSizeMap(userIdList));
+			for (List<String> vUserIdList : userIdListList) {
+				followerSizeMap.putAll(getFollowerSizeMap(vUserIdList));
 			}
 
-			for (User collectedUser : collectedUserList) {
-				int followerSize = followerSizeMap.get(collectedUser
-						.getUserId());
-				collectedUser.addFollowerSize(followerSize);
+			for (User user : userList) {
+				int followerSize = followerSizeMap.get(user.getUserId());
+				user.addFollowerSize(followerSize);
 			}
-
-			System.out.println(String.format(
-					"End increaseSamplesForCollectedUserList, i = %s, %s", i,
-					new Date()));
 
 			try {
 				Thread.sleep(60 * 60 * 1000);
@@ -452,10 +290,9 @@ public class CollectedUserTest {
 		}
 	}
 
-	private void calculateIncreasedFollowerSizeList(List<User> collectedUserList) {
-		for (User collectedUser : collectedUserList) {
-			List<Integer> followerSizeList = collectedUser
-					.getFollowerSizeList();
+	private void calculateIncreasedFollowerSizeList(List<User> userList) {
+		for (User user : userList) {
+			List<Integer> followerSizeList = user.getFollowerSizeList();
 
 			int totalIncreasedFollowerSize = 0;
 
@@ -467,15 +304,14 @@ public class CollectedUserTest {
 				totalIncreasedFollowerSize = totalIncreasedFollowerSize
 						+ increasedFollowerSize;
 
-				collectedUser.addIncreasedFollowerSize(increasedFollowerSize);
+				user.addIncreasedFollowerSize(increasedFollowerSize);
 			}
 
-			collectedUser
-					.setTotalIncreasedFollowerSize(totalIncreasedFollowerSize);
+			user.setTotalIncreasedFollowerSize(totalIncreasedFollowerSize);
 		}
 	}
 
-	private class CollectedUserIncreasedFollowerSizeComparator implements
+	private class UserIncreasedFollowerSizeComparator implements
 			Comparator<User> {
 
 		@Override
@@ -486,62 +322,40 @@ public class CollectedUserTest {
 
 	}
 
-	private void sortCollectedUserList(List<User> collectedUserList) {
-		Collections.sort(collectedUserList,
-				new CollectedUserIncreasedFollowerSizeComparator());
+	private void sortUserList(List<User> userList) {
+		Collections.sort(userList, new UserIncreasedFollowerSizeComparator());
 	}
 
-	private List<User> getCandidateCollectedUserList(String userIdNames) {
-		List<User> collectedUserList = getUserList(userIdNames);
+	private List<User> getCollectingUserList(String userIdNames) {
+		List<User> collectingUserList = getUserList(userIdNames);
 
-		System.out.println(String.format("GetCollectedUserListSize = %s",
-				collectedUserList.size()));
+		increaseSamplesForUserList(collectingUserList);
 
-		deduplicateCollectedUserList(collectedUserList);
+		calculateIncreasedFollowerSizeList(collectingUserList);
 
-		System.out.println(String.format(
-				"DeduplicateCollectedUserListSize = %s",
-				collectedUserList.size()));
+		sortUserList(collectingUserList);
 
-		increaseSamplesForCollectedUserList(collectedUserList);
-
-		System.out.println(String.format(
-				"IncreaseSamplesForCollectedUserListSize = %s",
-				collectedUserList.size()));
-
-		calculateIncreasedFollowerSizeList(collectedUserList);
-
-		System.out.println(String.format(
-				"CalculateIncreasedFollowerSizeListSize = %s",
-				collectedUserList.size()));
-
-		sortCollectedUserList(collectedUserList);
-
-		System.out.println(String.format("SortCollectedUserListSize = %s",
-				collectedUserList.size()));
-
-		return collectedUserList;
+		return collectingUserList;
 	}
 
-	private void saveCollectedUserList(List<User> collectedUserList,
-			String collectedUsersFile) {
+	private void saveCollectingUserList(List<User> userList, String usersFile) {
 		Writer writer = null;
 
 		try {
-			writer = new OutputStreamWriter(new FileOutputStream(
-					collectedUsersFile), "UTF-8");
+			writer = new OutputStreamWriter(new FileOutputStream(usersFile),
+					"UTF-8");
 
-			for (User collectedUser : collectedUserList) {
+			for (User user : userList) {
 				StringBuilder content = new StringBuilder();
 
-				content.append(collectedUser.getUserId());
+				content.append(user.getUserId());
 				content.append(",");
-				content.append(collectedUser.getUserName());
+				content.append(user.getUserName());
 				content.append(",");
-				content.append(collectedUser.getTotalIncreasedFollowerSize());
+				content.append(user.getTotalIncreasedFollowerSize());
 				content.append(",");
 				content.append(StringUtils.join(
-						collectedUser.getIncreasedFollowerSizeList(), ","));
+						user.getIncreasedFollowerSizeList(), ","));
 
 				writer.write(content.toString());
 				writer.write("\n");
@@ -571,16 +385,17 @@ public class CollectedUserTest {
 		String userIdNames = scanner.nextLine();
 
 		System.out.println("Input collected user file: ");
-		String collectedUsersFile = scanner.nextLine();
+		String collectingUsersFile = scanner.nextLine();
 
-		CollectedUserTest collectedUserTest = new CollectedUserTest(cookiesFile);
-		collectedUserTest.authorize();
+		CollectingUserTest collectingUserTest = new CollectingUserTest(
+				cookiesFile);
+		collectingUserTest.authorize();
 
-		List<User> collectedUserList = collectedUserTest
-				.getCandidateCollectedUserList(userIdNames);
+		List<User> collectingUserList = collectingUserTest
+				.getCollectingUserList(userIdNames);
 
-		collectedUserTest.saveCollectedUserList(collectedUserList,
-				collectedUsersFile);
+		collectingUserTest.saveCollectingUserList(collectingUserList,
+				collectingUsersFile);
 	}
 
 }

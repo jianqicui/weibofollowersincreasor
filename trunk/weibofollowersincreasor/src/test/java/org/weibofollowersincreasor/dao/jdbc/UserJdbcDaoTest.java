@@ -8,30 +8,28 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.weibofollowersincreasor.dao.FollowerDao;
+import org.weibofollowersincreasor.dao.UserDao;
 import org.weibofollowersincreasor.dao.exception.DaoException;
-import org.weibofollowersincreasor.entity.Follower;
-import org.weibofollowersincreasor.entity.FollowerPhase;
+import org.weibofollowersincreasor.entity.GlobalUserPhase;
+import org.weibofollowersincreasor.entity.User;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = { "classpath:applicationContext.xml" })
-public class FollowerJdbcDaoTest {
+public class UserJdbcDaoTest {
 
 	@Autowired
-	private FollowerDao followerDao;
+	private UserDao userDaoDao;
 
 	@Test
-	public void testGetFollowerList() throws DaoException {
-		int categoryId = 1;
-		int typeId = 1;
-		FollowerPhase followerPhase = FollowerPhase.collected;
+	public void testGetUserList() throws DaoException {
+		GlobalUserPhase globalUserPhase = GlobalUserPhase.collected;
 		int index = 0;
 		int size = 10;
 
-		List<Follower> followerList = followerDao.getFollowerList(categoryId,
-				typeId, followerPhase, index, size);
+		List<User> userList = userDaoDao.getUserList(globalUserPhase, index,
+				size);
 
-		Assert.assertNotNull(followerList);
+		Assert.assertNotNull(userList);
 	}
 
 }

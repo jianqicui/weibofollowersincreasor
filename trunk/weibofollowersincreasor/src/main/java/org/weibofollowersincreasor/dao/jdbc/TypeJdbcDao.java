@@ -42,7 +42,8 @@ public class TypeJdbcDao implements TypeDao {
 	public List<Type> getTypeList(int categoryId) throws DaoException {
 		String tableName = "category" + categoryId + "_type";
 
-		String sql = "select type_id, type_name from " + tableName;
+		String sql = "select type_id, type_name from " + tableName
+				+ " order by id";
 
 		try {
 			return jdbcTemplate.query(sql, rowMapper);

@@ -25,7 +25,7 @@ import javax.crypto.NoSuchPaddingException;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang.math.RandomUtils;
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
@@ -407,7 +407,7 @@ public class WeiboLoginTest {
 		String nonce = jsonNode.get("nonce").asText();
 		String pubkey = jsonNode.get("pubkey").asText();
 		String rsakv = jsonNode.get("rsakv").asText();
-		int prelt = 100 + RandomUtils.nextInt(900);
+		int prelt = 100 + RandomUtils.nextInt(0, 900);
 
 		String sp = rsaCrypt(pubkey, "10001", servertime + "\t" + nonce + "\n"
 				+ password);

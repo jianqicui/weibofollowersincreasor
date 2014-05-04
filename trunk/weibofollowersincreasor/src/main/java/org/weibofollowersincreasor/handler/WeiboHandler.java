@@ -18,6 +18,9 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 import org.weibofollowersincreasor.handler.exception.HandlerException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -112,6 +115,24 @@ public class WeiboHandler {
 		return result;
 	}
 
+	private String loginWeiboQuery(String result) throws HandlerException {
+		JsonNode jsonNode = getJsonNode(result);
+
+		String arrUrl = ((ArrayNode) jsonNode.get("arrURL")).get(0).asText();
+
+		String query;
+
+		try {
+			URI uri = new URI(arrUrl);
+
+			query = uri.getQuery();
+		} catch (URISyntaxException e) {
+			throw new HandlerException(e);
+		}
+
+		return query;
+	}
+
 	private String loginWeibo(HttpClient httpClient, String query)
 			throws HandlerException {
 		StringBuilder url = new StringBuilder();
@@ -141,22 +162,91 @@ public class WeiboHandler {
 		// crossDomain
 		String result = crossDomain(httpClient);
 
-		JsonNode jsonNode = getJsonNode(result);
+		// loginWeiboQuery
+		String query = loginWeiboQuery(result);
 
-		String arrUrl = ((ArrayNode) jsonNode.get("arrURL")).get(0).asText();
+		// loginWeibo
+		result = loginWeibo(httpClient, query);
 
-		String query;
+		if (!result.startsWith("sinaSSOController.doCrossDomainCallBack")) {
+			query = loginWeiboQuery(result);
+
+			loginWeibo(httpClient, query);
+		}
+	}
+
+	private byte[] post(HttpClient httpClient, HttpPost post)
+			throws HandlerException {
+		byte[] result;
 
 		try {
-			URI uri = new URI(arrUrl);
+			HttpResponse response = httpClient.execute(post);
 
-			query = uri.getQuery();
-		} catch (URISyntaxException e) {
+			int statusCode = response.getStatusLine().getStatusCode();
+
+			if (statusCode == HttpStatus.SC_OK) {
+				result = EntityUtils.toByteArray(response.getEntity());
+			} else {
+				throw new HandlerException(String.valueOf(statusCode));
+			}
+		} catch (ClientProtocolException e) {
+			throw new HandlerException(e);
+		} catch (IOException e) {
+			throw new HandlerException(e);
+		} finally {
+			post.releaseConnection();
+		}
+
+		return result;
+	}
+
+	private void analyzeResult(byte[] result) throws HandlerException {
+		JsonNode jsonNode;
+
+		try {
+			jsonNode = objectMapper.readTree(result);
+		} catch (JsonProcessingException e) {
+			throw new HandlerException(e);
+		} catch (IOException e) {
 			throw new HandlerException(e);
 		}
 
-		// loginWeibo
-		loginWeibo(httpClient, query);
+		String code = jsonNode.get("code").asText();
+
+		if (!"100000".equals(code)) {
+			throw new HandlerException(code);
+		}
+	}
+
+	public boolean isNormal(HttpClient httpClient, String userId)
+			throws HandlerException {
+		String result = null;
+
+		HttpGet get = new HttpGet("http://www.weibo.com/u/" + userId);
+
+		try {
+			HttpResponse response = httpClient.execute(get);
+
+			int statusCode = response.getStatusLine().getStatusCode();
+
+			if (statusCode == HttpStatus.SC_OK) {
+				result = EntityUtils.toString(response.getEntity(), "UTF-8");
+			}
+		} catch (ClientProtocolException e) {
+			throw new HandlerException(e);
+		} catch (IOException e) {
+			throw new HandlerException(e);
+		} finally {
+			get.releaseConnection();
+		}
+
+		Document doc = Jsoup.parse(result);
+
+		Elements divs = doc.select(".page_error");
+
+		boolean normalUser = divs.isEmpty();
+
+		return normalUser;
 	}
 
 	public void follow(HttpClient httpClient, String userId)
@@ -171,23 +261,13 @@ public class WeiboHandler {
 
 		try {
 			post.setEntity(new UrlEncodedFormEntity(nameValuePairList));
-
-			HttpResponse response = httpClient.execute(post);
-
-			int statusCode = response.getStatusLine().getStatusCode();
-
-			if (statusCode != HttpStatus.SC_OK) {
-				throw new HandlerException(String.valueOf(statusCode));
-			}
 		} catch (UnsupportedEncodingException e) {
 			throw new HandlerException(e);
-		} catch (ClientProtocolException e) {
-			throw new HandlerException(e);
-		} catch (IOException e) {
-			throw new HandlerException(e);
-		} finally {
-			post.releaseConnection();
 		}
+
+		byte[] result = post(httpClient, post);
+
+		analyzeResult(result);
 	}
 
 	public void unfollow(HttpClient httpClient, String userId)
@@ -202,23 +282,13 @@ public class WeiboHandler {
 
 		try {
 			post.setEntity(new UrlEncodedFormEntity(nameValuePairList));
-
-			HttpResponse response = httpClient.execute(post);
-
-			int statusCode = response.getStatusLine().getStatusCode();
-
-			if (statusCode != HttpStatus.SC_OK) {
-				throw new HandlerException(String.valueOf(statusCode));
-			}
 		} catch (UnsupportedEncodingException e) {
 			throw new HandlerException(e);
-		} catch (ClientProtocolException e) {
-			throw new HandlerException(e);
-		} catch (IOException e) {
-			throw new HandlerException(e);
-		} finally {
-			post.releaseConnection();
 		}
+
+		byte[] result = post(httpClient, post);
+
+		analyzeResult(result);
 	}
 
 }
