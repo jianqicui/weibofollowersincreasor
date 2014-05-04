@@ -3,15 +3,17 @@ package org.weibofollowersincreasor.handler;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.RandomUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.util.EntityUtils;
-import org.weibofollowersincreasor.entity.Follower;
-import org.weibofollowersincreasor.entity.Followers;
+import org.weibofollowersincreasor.entity.User;
 import org.weibofollowersincreasor.handler.exception.HandlerException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -19,7 +21,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
-public class SaeAppBatchhelperHandler {
+public class WeiboApiHandler {
+
+	private static final String[] accessTokenUrls = { "https://api.weibo.com/oauth2/authorize?client_id=707016719&redirect_uri=http://fansmaster.sinaapp.com/static/frame/weibo_phpsdk/callback.php" };
+
+	private static final Pattern accessTokenPattern = Pattern
+			.compile("2\\.00(.{28})");
 
 	private ObjectMapper objectMapper;
 
@@ -27,13 +34,18 @@ public class SaeAppBatchhelperHandler {
 		objectMapper = new ObjectMapper();
 	}
 
-	public void authorize(HttpClient httpClient) throws HandlerException {
-		String url = "https://api.weibo.com/oauth2/authorize?client_id=3144078080&redirect_uri=http%3A%2F%2Fbatchhelper.sinaapp.com%2F&response_type=code";
+	public String getAccessToken(HttpClient httpClient) throws HandlerException {
+		String html;
 
-		HttpGet get = new HttpGet(url);
+		int index = RandomUtils.nextInt(0, accessTokenUrls.length);
+		String accessTokenUrl = accessTokenUrls[index];
+
+		HttpGet get = new HttpGet(accessTokenUrl);
 
 		try {
-			httpClient.execute(get);
+			HttpResponse response = httpClient.execute(get);
+
+			html = EntityUtils.toString(response.getEntity(), "UTF-8");
 		} catch (ClientProtocolException e) {
 			throw new HandlerException(e);
 		} catch (IOException e) {
@@ -41,22 +53,32 @@ public class SaeAppBatchhelperHandler {
 		} finally {
 			get.releaseConnection();
 		}
+
+		String accessToken;
+
+		Matcher matcher = accessTokenPattern.matcher(html);
+
+		if (matcher.find()) {
+			accessToken = matcher.group(0);
+		} else {
+			throw new HandlerException("GetAccessToken failed");
+		}
+
+		return accessToken;
 	}
 
-	public Followers getFollowersByUserName(HttpClient httpClient,
-			String userName, int cursor, int size) throws HandlerException {
+	public List<User> getUserListByUserId(HttpClient httpClient,
+			String accessToken, String userId, int cursor, int size)
+			throws HandlerException {
 		byte[] result;
 
 		StringBuilder url = new StringBuilder();
-		url.append("http://batchhelper.sinaapp.com/action.php");
+
+		url.append("https://api.weibo.com/2/friendships/followers/ids.json");
 		url.append("?");
-		url.append("action");
+		url.append("uid");
 		url.append("=");
-		url.append("queryFollowersIds");
-		url.append("&");
-		url.append("userName");
-		url.append("=");
-		url.append(userName);
+		url.append(userId);
 		url.append("&");
 		url.append("cursor");
 		url.append("=");
@@ -65,6 +87,10 @@ public class SaeAppBatchhelperHandler {
 		url.append("count");
 		url.append("=");
 		url.append(size);
+		url.append("&");
+		url.append("access_token");
+		url.append("=");
+		url.append(accessToken);
 
 		HttpGet get = new HttpGet(url.toString());
 
@@ -96,48 +122,24 @@ public class SaeAppBatchhelperHandler {
 			throw new HandlerException(e);
 		}
 
-		Followers followers = new Followers();
-
-		JsonNode previousCursorJsonNode = jsonNode.get("previous_cursor");
-
-		if (previousCursorJsonNode != null) {
-			int previousCursor = previousCursorJsonNode.asInt();
-
-			followers.setPreviousCursor(previousCursor);
-		} else {
-			throw new HandlerException("GetFollowerIdsByUserName failed");
-		}
-
-		JsonNode nextCursorJsonNode = jsonNode.get("next_cursor");
-
-		if (nextCursorJsonNode != null) {
-			int nextCursor = nextCursorJsonNode.asInt();
-
-			followers.setNextCursor(nextCursor);
-		} else {
-			throw new HandlerException("GetFollowerIdsByUserName failed");
-		}
+		List<User> userList;
 
 		ArrayNode userIdsArrayNode = (ArrayNode) jsonNode.get("ids");
 
 		if (userIdsArrayNode != null) {
-			List<Follower> followerList = new ArrayList<Follower>();
+			userList = new ArrayList<User>();
 
 			for (int i = 0; i < userIdsArrayNode.size(); i++) {
-				String userId = userIdsArrayNode.get(i).asText();
+				User user = new User();
+				user.setUserId(userIdsArrayNode.get(i).asText());
 
-				Follower follower = new Follower();
-				follower.setUserId(userId);
-
-				followerList.add(follower);
+				userList.add(user);
 			}
-
-			followers.setFollowerList(followerList);
 		} else {
-			throw new HandlerException("GetFollowerIdsByUserName failed");
+			throw new HandlerException("GetUserListByUserId failed");
 		}
 
-		return followers;
+		return userList;
 	}
 
 }

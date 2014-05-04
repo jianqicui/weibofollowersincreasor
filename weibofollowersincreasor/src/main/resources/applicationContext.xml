@@ -104,10 +104,6 @@
 	</aop:config>
 
 	<!-- DAO -->
-	<bean id="activeUserDao" class="org.weibofollowersincreasor.dao.jdbc.ActiveUserJdbcDao">
-		<property name="jdbcTemplate" ref="jdbcTemplate" />
-	</bean>
-
 	<bean id="categoryDao" class="org.weibofollowersincreasor.dao.jdbc.CategoryJdbcDao">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 	</bean>
@@ -115,22 +111,25 @@
 	<bean id="typeDao" class="org.weibofollowersincreasor.dao.jdbc.TypeJdbcDao">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 	</bean>
-
-	<bean id="collectedUserDao"
-		class="org.weibofollowersincreasor.dao.jdbc.CollectedUserJdbcDao">
+	
+	<bean id="userDao" class="org.weibofollowersincreasor.dao.jdbc.UserJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+	
+	<bean id="queryingUserDao" class="org.weibofollowersincreasor.dao.jdbc.QueryingUserJdbcDao">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 	</bean>
 
-	<bean id="followerDao" class="org.weibofollowersincreasor.dao.jdbc.FollowerJdbcDao">
+	<bean id="collectingUserDao"
+		class="org.weibofollowersincreasor.dao.jdbc.CollectingUserJdbcDao">
+		<property name="jdbcTemplate" ref="jdbcTemplate" />
+	</bean>
+
+	<bean id="applyingUserDao" class="org.weibofollowersincreasor.dao.jdbc.ApplyingUserJdbcDao">
 		<property name="jdbcTemplate" ref="jdbcTemplate" />
 	</bean>
 
 	<!-- Service -->
-	<bean id="activeUserService"
-		class="org.weibofollowersincreasor.service.impl.ActiveUserServiceImpl">
-		<property name="activeUserDao" ref="activeUserDao" />
-	</bean>
-
 	<bean id="categoryService"
 		class="org.weibofollowersincreasor.service.impl.CategoryServiceImpl">
 		<property name="categoryDao" ref="categoryDao" />
@@ -140,61 +139,68 @@
 		class="org.weibofollowersincreasor.service.impl.TypeServiceImpl">
 		<property name="typeDao" ref="typeDao" />
 	</bean>
-
-	<bean id="collectedUserService"
-		class="org.weibofollowersincreasor.service.impl.CollectedUserServiceImpl">
-		<property name="collectedUserDao" ref="collectedUserDao" />
+	
+	<bean id="userService"
+		class="org.weibofollowersincreasor.service.impl.UserServiceImpl">
+		<property name="userDao" ref="userDao" />
 	</bean>
-
-	<bean id="followerService"
-		class="org.weibofollowersincreasor.service.impl.FollowerServiceImpl">
-		<property name="followerDao" ref="followerDao" />
+	
+	<bean id="queryingUserService"
+		class="org.weibofollowersincreasor.service.impl.QueryingUserServiceImpl">
+		<property name="queryingUserDao" ref="queryingUserDao" />
+	</bean>
+	
+	<bean id="collectingUserService"
+		class="org.weibofollowersincreasor.service.impl.CollectingUserServiceImpl">
+		<property name="collectingUserDao" ref="collectingUserDao" />
+	</bean>
+	
+	<bean id="applyingUserService"
+		class="org.weibofollowersincreasor.service.impl.ApplyingUserServiceImpl">
+		<property name="applyingUserDao" ref="applyingUserDao" />
 	</bean>
 
 	<!-- Handler -->
 	<bean id="weiboHandler" class="org.weibofollowersincreasor.handler.WeiboHandler"
 		init-method="initialize" />
 
-	<bean id="saeAppBatchhelperHandler"
-		class="org.weibofollowersincreasor.handler.SaeAppBatchhelperHandler"
+	<bean id="weiboApiHandler"
+		class="org.weibofollowersincreasor.handler.WeiboApiHandler"
 		init-method="initialize" />
 
 	<!-- Action -->
 	<bean id="weiboFollowersIncreasorAction"
 		class="org.weibofollowersincreasor.action.WeiboFollowersIncreasorAction"
 		init-method="initialize" destroy-method="destroy">
-		<property name="activeUserService" ref="activeUserService" />
+		<property name="queryingUserService" ref="queryingUserService" />
+		<property name="applyingUserService" ref="applyingUserService" />
 		<property name="categoryService" ref="categoryService" />
 		<property name="typeService" ref="typeService" />
-		<property name="collectedUserService" ref="collectedUserService" />
-		<property name="followerService" ref="followerService" />
+		<property name="collectingUserService" ref="collectingUserService" />
+		<property name="userService" ref="userService" />
 		<property name="weiboHandler" ref="weiboHandler" />
-		<property name="saeAppBatchhelperHandler" ref="saeAppBatchhelperHandler" />
-		<property name="filteredFollowerSize">
-			<value>5000</value>
+		<property name="weiboApiHandler" ref="weiboApiHandler" />
+		<property name="filteringUserSize">
+			<value>2000</value>
 		</property>
-		<property name="followedFollowerSize">
-			<value>25</value>
+		<property name="followingUserSize">
+			<value>30</value>
 		</property>
-		<property name="followedDays">
-			<value>7</value>
+		<property name="reservingDays">
+			<value>5</value>
 		</property>
-		<property name="unfollowedFollowerSize">
-			<value>50</value>
+		<property name="unfollowingUserSize">
+			<value>30</value>
 		</property>
 	</bean>
 	
 	<!-- Task -->
 	<task:scheduler id="scheduler" pool-size="10" />
 	<task:scheduled-tasks scheduler="scheduler">
-		<task:scheduled ref="weiboFollowersIncreasorAction" method="collectFollowers"
-			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
-		<task:scheduled ref="weiboFollowersIncreasorAction" method="filterFollowers"
-			cron="0 0 2,5,8,11,14,17,20,23 * * ?" />
-		<task:scheduled ref="weiboFollowersIncreasorAction" method="followFollowers"
-			cron="0 0 0,3,6,9,12,15,18,21 * * ?" />
-		<task:scheduled ref="weiboFollowersIncreasorAction" method="unfollowFollowers"
-			cron="0 0 2,5,8,11,14,17,20,23 * * ?" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="collectAndFilterUsers"
+			fixed-delay="60000" />
+		<task:scheduled ref="weiboFollowersIncreasorAction" method="followAndUnfollowUsers"
+			cron="0 0 0,2,4,6,8,10,12,14,16,18,20,22 * * ?" />
 	</task:scheduled-tasks>
 
 </beans>

@@ -40,7 +40,7 @@ public class CategoryJdbcDao implements CategoryDao {
 
 	@Override
 	public List<Category> getCategoryList() throws DaoException {
-		String sql = "select category_id, category_name from category";
+		String sql = "select category_id, category_name from category order by id";
 
 		try {
 			return jdbcTemplate.query(sql, rowMapper);

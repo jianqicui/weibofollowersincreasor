@@ -7,9 +7,10 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -28,27 +29,28 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.impl.conn.SchemeRegistryFactory;
-import org.apache.http.impl.cookie.BasicClientCookie2;
+import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreConnectionPNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.weibofollowersincreasor.action.exception.ActionException;
-import org.weibofollowersincreasor.entity.ActiveUser;
-import org.weibofollowersincreasor.entity.ActiveUserPhase;
+import org.weibofollowersincreasor.entity.ApplyingUser;
 import org.weibofollowersincreasor.entity.Category;
-import org.weibofollowersincreasor.entity.CollectedUser;
-import org.weibofollowersincreasor.entity.Follower;
-import org.weibofollowersincreasor.entity.FollowerPhase;
-import org.weibofollowersincreasor.entity.Followers;
+import org.weibofollowersincreasor.entity.CollectingUser;
+import org.weibofollowersincreasor.entity.GlobalUserPhase;
+import org.weibofollowersincreasor.entity.User;
+import org.weibofollowersincreasor.entity.UserPhase;
+import org.weibofollowersincreasor.entity.QueryingUser;
 import org.weibofollowersincreasor.entity.Type;
-import org.weibofollowersincreasor.handler.SaeAppBatchhelperHandler;
+import org.weibofollowersincreasor.handler.WeiboApiHandler;
 import org.weibofollowersincreasor.handler.WeiboHandler;
 import org.weibofollowersincreasor.handler.exception.HandlerException;
-import org.weibofollowersincreasor.service.ActiveUserService;
+import org.weibofollowersincreasor.service.ApplyingUserService;
 import org.weibofollowersincreasor.service.CategoryService;
-import org.weibofollowersincreasor.service.CollectedUserService;
-import org.weibofollowersincreasor.service.FollowerService;
+import org.weibofollowersincreasor.service.CollectingUserService;
+import org.weibofollowersincreasor.service.UserService;
+import org.weibofollowersincreasor.service.QueryingUserService;
 import org.weibofollowersincreasor.service.TypeService;
 import org.weibofollowersincreasor.service.exception.ServiceException;
 
@@ -62,27 +64,29 @@ public class WeiboFollowersIncreasorAction {
 	private static final Logger logger = LoggerFactory
 			.getLogger(WeiboFollowersIncreasorAction.class);
 
-	private ActiveUserService activeUserService;
+	private QueryingUserService queryingUserService;
+
+	private ApplyingUserService applyingUserService;
 
 	private CategoryService categoryService;
 
 	private TypeService typeService;
 
-	private CollectedUserService collectedUserService;
+	private CollectingUserService collectingUserService;
 
-	private FollowerService followerService;
+	private UserService userService;
 
 	private WeiboHandler weiboHandler;
 
-	private SaeAppBatchhelperHandler saeAppBatchhelperHandler;
+	private WeiboApiHandler weiboApiHandler;
 
-	private int filteredFollowerSize;
+	private int filteringUserSize;
 
-	private int followedFollowerSize;
+	private int followingUserSize;
 
-	private int followedDays;
+	private int reservingDays;
 
-	private int unfollowedFollowerSize;
+	private int unfollowingUserSize;
 
 	private ObjectMapper objectMapper;
 
@@ -92,8 +96,12 @@ public class WeiboFollowersIncreasorAction {
 
 	private DefaultHttpClient unfollowingDefaultHttpClient;
 
-	public void setActiveUserService(ActiveUserService activeUserService) {
-		this.activeUserService = activeUserService;
+	public void setQueryingUserService(QueryingUserService queryingUserService) {
+		this.queryingUserService = queryingUserService;
+	}
+
+	public void setApplyingUserService(ApplyingUserService applyingUserService) {
+		this.applyingUserService = applyingUserService;
 	}
 
 	public void setCategoryService(CategoryService categoryService) {
@@ -104,38 +112,37 @@ public class WeiboFollowersIncreasorAction {
 		this.typeService = typeService;
 	}
 
-	public void setCollectedUserService(
-			CollectedUserService collectedUserService) {
-		this.collectedUserService = collectedUserService;
+	public void setCollectingUserService(
+			CollectingUserService collectingUserService) {
+		this.collectingUserService = collectingUserService;
 	}
 
-	public void setFollowerService(FollowerService followerService) {
-		this.followerService = followerService;
+	public void setUserService(UserService userService) {
+		this.userService = userService;
 	}
 
 	public void setWeiboHandler(WeiboHandler weiboHandler) {
 		this.weiboHandler = weiboHandler;
 	}
 
-	public void setSaeAppBatchhelperHandler(
-			SaeAppBatchhelperHandler saeAppBatchhelperHandler) {
-		this.saeAppBatchhelperHandler = saeAppBatchhelperHandler;
+	public void setWeiboApiHandler(WeiboApiHandler weiboApiHandler) {
+		this.weiboApiHandler = weiboApiHandler;
 	}
 
-	public void setFilteredFollowerSize(int filteredFollowerSize) {
-		this.filteredFollowerSize = filteredFollowerSize;
+	public void setFilteringUserSize(int filteringUserSize) {
+		this.filteringUserSize = filteringUserSize;
 	}
 
-	public void setFollowedFollowerSize(int followedFollowerSize) {
-		this.followedFollowerSize = followedFollowerSize;
+	public void setFollowingUserSize(int followingUserSize) {
+		this.followingUserSize = followingUserSize;
 	}
 
-	public void setFollowedDays(int followedDays) {
-		this.followedDays = followedDays;
+	public void setReservingDays(int reservingDays) {
+		this.reservingDays = reservingDays;
 	}
 
-	public void setUnfollowedFollowerSize(int unfollowedFollowerSize) {
-		this.unfollowedFollowerSize = unfollowedFollowerSize;
+	public void setUnfollowingUserSize(int unfollowingUserSize) {
+		this.unfollowingUserSize = unfollowingUserSize;
 	}
 
 	public void initialize() {
@@ -246,38 +253,17 @@ public class WeiboFollowersIncreasorAction {
 			boolean secure = (boolean) map.get("secure");
 			int version = (int) map.get("version");
 
-			String commentURL = (String) map.get("commentURL");
+			BasicClientCookie basicClientCookie = new BasicClientCookie(name,
+					value);
 
-			int[] ports = null;
-			if (map.get("ports") != null) {
-				String[] portsStrings = ((String) map.get("ports")).split(",");
+			basicClientCookie.setComment(comment);
+			basicClientCookie.setDomain(domain);
+			basicClientCookie.setExpiryDate(expiryDate);
+			basicClientCookie.setPath(path);
+			basicClientCookie.setSecure(secure);
+			basicClientCookie.setVersion(version);
 
-				ports = new int[portsStrings.length];
-
-				for (int i = 0; i < portsStrings.length; i++) {
-					String portString = portsStrings[i];
-
-					ports[i] = Integer.parseInt(portString);
-				}
-			}
-
-			boolean persistent = (boolean) map.get("persistent");
-
-			BasicClientCookie2 basicClientCookie2 = new BasicClientCookie2(
-					name, value);
-
-			basicClientCookie2.setComment(comment);
-			basicClientCookie2.setDomain(domain);
-			basicClientCookie2.setExpiryDate(expiryDate);
-			basicClientCookie2.setPath(path);
-			basicClientCookie2.setSecure(secure);
-			basicClientCookie2.setVersion(version);
-
-			basicClientCookie2.setCommentURL(commentURL);
-			basicClientCookie2.setPorts(ports);
-			basicClientCookie2.setDiscard(persistent);
-
-			basicCookieStore.addCookie(basicClientCookie2);
+			basicCookieStore.addCookie(basicClientCookie);
 		}
 
 		defaultHttpClient.setCookieStore(basicCookieStore);
@@ -301,95 +287,53 @@ public class WeiboFollowersIncreasorAction {
 		return cookies;
 	}
 
-	private List<Follower> getCollectedFollowerListByUserId(
-			HttpClient httpClient,
-			SaeAppBatchhelperHandler saeAppBatchhelperHandler, int categoryId,
-			int typeId, String userId, String userName, int times) {
+	private List<User> getUserListByUserId(HttpClient httpClient,
+			String accessToken, String userId) {
+		List<User> userList = new ArrayList<User>();
+
 		int cursor = 0;
 		int size = 100;
 
-		List<Follower> collectedFollowerList = new ArrayList<Follower>();
-
-		while (true) {
-			List<Follower> vFollowerList;
-			int nextCursor;
+		for (int i = 0; i < 50; i++) {
+			List<User> vUserList;
 
 			try {
-				Followers followers = saeAppBatchhelperHandler
-						.getFollowersByUserName(httpClient, userName, cursor,
-								size);
-
-				vFollowerList = followers.getFollowerList();
-				nextCursor = followers.getNextCursor();
+				vUserList = weiboApiHandler.getUserListByUserId(httpClient,
+						accessToken, userId, cursor, size);
 			} catch (HandlerException e) {
-				vFollowerList = new ArrayList<Follower>();
-				nextCursor = cursor + size;
+				vUserList = new ArrayList<User>();
 			}
 
-			times--;
+			userList.addAll(vUserList);
 
-			collectedFollowerList.addAll(vFollowerList);
-
-			if (times == 0) {
-				break;
-			}
-
-			if (nextCursor == 0) {
-				break;
-			} else {
-				cursor = nextCursor;
-			}
-
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				logger.error("Exception", e);
-
-				throw new ActionException(e);
-			}
+			cursor = cursor + size;
 		}
 
-		return collectedFollowerList;
+		return userList;
 	}
 
-	private void deduplicateCollectedUserList(List<Follower> followerList) {
-		List<Follower> vFollowerList = new ArrayList<Follower>();
+	private void deduplicateUserList(List<User> userList) {
+		Set<User> userSet = new HashSet<User>();
 
-		for (Iterator<Follower> it = followerList.iterator(); it.hasNext();) {
-			Follower follower = it.next();
+		userSet.addAll(userList);
 
-			boolean existing = false;
+		userList.clear();
 
-			for (Follower vFollower : vFollowerList) {
-				if (follower.getUserId().equals(vFollower.getUserId())) {
-					existing = true;
-
-					break;
-				}
-			}
-
-			if (existing) {
-				it.remove();
-			} else {
-				vFollowerList.add(follower);
-			}
-		}
+		userList.addAll(userSet);
 	}
 
-	public void collectFollowers() {
-		ActiveUser activeUser;
-
-		ActiveUserPhase activeUserPhase = ActiveUserPhase.querying;
+	private void collectUsers() {
+		QueryingUser queryingUser;
 
 		try {
-			activeUser = activeUserService.getActiveUser(activeUserPhase);
+			queryingUser = queryingUserService.getQueryingUser();
 		} catch (ServiceException e) {
 			logger.error("Exception", e);
 
 			throw new ActionException(e);
 		}
 
-		setCookies(collectingDefaultHttpClient, activeUser.getCookies());
+		setCookies(collectingDefaultHttpClient, queryingUser.getCookies());
 
 		try {
 			weiboHandler.refresh(collectingDefaultHttpClient);
@@ -397,22 +341,140 @@ public class WeiboFollowersIncreasorAction {
 			return;
 		}
 
-		activeUser.setCookies(getCookies(collectingDefaultHttpClient));
+		queryingUser.setCookies(getCookies(collectingDefaultHttpClient));
 
 		try {
-			activeUserService.updateActiveUser(activeUserPhase, activeUser);
+			queryingUserService.updateQueryingUser(queryingUser);
 		} catch (ServiceException e) {
 			logger.error("Exception", e);
 
 			throw new ActionException(e);
 		}
 
+		List<User> userList = new ArrayList<User>();
+
+		int userSize = 0;
+
+		logger.debug(String.format("Begin to collect users, userSize = %s",
+				userSize));
+
+		List<CollectingUser> collectingUserList;
+
 		try {
-			saeAppBatchhelperHandler.authorize(collectingDefaultHttpClient);
+			collectingUserList = collectingUserService.getCollectingUserList();
+		} catch (ServiceException e) {
+			logger.error("Exception", e);
+
+			throw new ActionException(e);
+		}
+
+		String accessToken;
+
+		try {
+			accessToken = weiboApiHandler
+					.getAccessToken(collectingDefaultHttpClient);
 		} catch (HandlerException e) {
 			return;
 		}
 
+		for (CollectingUser collectingUser : collectingUserList) {
+			String userId = collectingUser.getUserId();
+
+			List<User> vUserList = getUserListByUserId(
+					collectingDefaultHttpClient, accessToken, userId);
+
+			userList.addAll(vUserList);
+		}
+
+		deduplicateUserList(userList);
+
+		userSize = 0;
+
+		for (User user : userList) {
+			try {
+				userService.addUser(GlobalUserPhase.collected, user);
+
+				userSize++;
+			} catch (ServiceException e) {
+				logger.error("Exception", e);
+
+				throw new ActionException(e);
+			}
+		}
+
+		logger.debug(String.format("End to collect users, userSize = %s",
+				userSize));
+	}
+
+	private void filterUsers() {
+		List<User> userList;
+
+		try {
+			userList = userService.getUserList(GlobalUserPhase.collected, 0,
+					filteringUserSize);
+		} catch (ServiceException e) {
+			logger.error("Exception", e);
+
+			throw new ActionException(e);
+		}
+
+		int userSize = userList.size();
+
+		if (userSize < filteringUserSize) {
+			return;
+		}
+
+		logger.debug(String.format("Begin to filter users, userSize = %s",
+				userSize));
+
+		userSize = 0;
+
+		for (User user : userList) {
+			boolean sameUserExisting = false;
+
+			try {
+				sameUserExisting = userService.isSameUserExisting(
+						GlobalUserPhase.filtered, user);
+			} catch (ServiceException e) {
+				logger.error("Exception", e);
+
+				throw new ActionException(e);
+			}
+
+			if (!sameUserExisting) {
+				try {
+					userService.moveUser(GlobalUserPhase.collected,
+							GlobalUserPhase.filtered, user);
+
+					userSize++;
+				} catch (ServiceException e) {
+					logger.error("Exception", e);
+
+					throw new ActionException(e);
+				}
+			} else {
+				try {
+					userService.deleteUser(GlobalUserPhase.collected,
+							user.getId());
+				} catch (ServiceException e) {
+					logger.error("Exception", e);
+
+					throw new ActionException(e);
+				}
+			}
+		}
+
+		logger.debug(String.format("End to filter users, userSize = %s",
+				userSize));
+	}
+
+	public void collectAndFilterUsers() {
+		collectUsers();
+
+		filterUsers();
+	}
+
+	private void followUsers() {
 		List<Category> categoryList;
 
 		try {
@@ -439,231 +501,45 @@ public class WeiboFollowersIncreasorAction {
 			for (Type type : typeList) {
 				int typeId = type.getTypeId();
 
-				List<Follower> followerList = new ArrayList<Follower>();
-
-				int followerSize = 0;
-
-				logger.debug(String
-						.format("Begin to collect followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-
-				List<CollectedUser> collectedUserList;
+				List<ApplyingUser> applyingUserList;
 
 				try {
-					collectedUserList = collectedUserService
-							.getCollectedUserList(categoryId, typeId);
+					applyingUserList = applyingUserService.getApplyingUserList(
+							categoryId, typeId);
 				} catch (ServiceException e) {
 					logger.error("Exception", e);
 
 					throw new ActionException(e);
 				}
 
-				for (CollectedUser collectedUser : collectedUserList) {
-					String userId = collectedUser.getUserId();
-					String userName = collectedUser.getUserName();
+				for (ApplyingUser applyingUser : applyingUserList) {
+					int applyingUserId = applyingUser.getId();
+					int followingIndex = applyingUser.getFollowingIndex();
 
-					List<Follower> collectedFollowerList = getCollectedFollowerListByUserId(
-							collectingDefaultHttpClient,
-							saeAppBatchhelperHandler, categoryId, typeId,
-							userId, userName, 50);
+					List<User> userList;
 
-					followerList.addAll(collectedFollowerList);
-				}
-
-				deduplicateCollectedUserList(followerList);
-
-				followerSize = 0;
-
-				for (Follower follower : followerList) {
 					try {
-						followerService.addFollower(categoryId, typeId,
-								FollowerPhase.collected, follower);
-
-						followerSize++;
+						userList = userService.getUserList(
+								GlobalUserPhase.filtered, followingIndex,
+								followingUserSize);
 					} catch (ServiceException e) {
 						logger.error("Exception", e);
 
 						throw new ActionException(e);
 					}
-				}
 
-				logger.debug(String
-						.format("End to collect followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-			}
-		}
-	}
+					int userSize = userList.size();
 
-	private boolean isSameFollowerExisting(int categoryId, int typeId,
-			Follower follower) {
-		boolean sameFollowerExisting = false;
-
-		try {
-			sameFollowerExisting = followerService.isSameFollowerExisting(
-					categoryId, typeId, FollowerPhase.filtered, follower);
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		if (!sameFollowerExisting) {
-			try {
-				sameFollowerExisting = followerService.isSameFollowerExisting(
-						categoryId, typeId, FollowerPhase.followed, follower);
-			} catch (ServiceException e) {
-				logger.error("Exception", e);
-
-				throw new ActionException(e);
-			}
-
-			if (!sameFollowerExisting) {
-				try {
-					sameFollowerExisting = followerService
-							.isSameFollowerExisting(categoryId, typeId,
-									FollowerPhase.unfollowed, follower);
-				} catch (ServiceException e) {
-					logger.error("Exception", e);
-
-					throw new ActionException(e);
-				}
-			}
-		}
-
-		return sameFollowerExisting;
-	}
-
-	public void filterFollowers() {
-		List<Category> categoryList;
-
-		try {
-			categoryList = categoryService.getCategoryList();
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		for (Category category : categoryList) {
-			int categoryId = category.getCategoryId();
-
-			List<Type> typeList;
-
-			try {
-				typeList = typeService.getTypeList(categoryId);
-			} catch (ServiceException e) {
-				logger.error("Exception", e);
-
-				throw new ActionException(e);
-			}
-
-			for (Type type : typeList) {
-				int typeId = type.getTypeId();
-
-				List<Follower> followerList;
-
-				try {
-					followerList = followerService.getFollowerList(categoryId,
-							typeId, FollowerPhase.collected, 0,
-							filteredFollowerSize);
-				} catch (ServiceException e) {
-					logger.error("Exception", e);
-
-					throw new ActionException(e);
-				}
-
-				int followerSize = followerList.size();
-
-				logger.debug(String
-						.format("Begin to filter followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-
-				followerSize = 0;
-
-				List<String> userIdList = new ArrayList<String>();
-
-				for (Follower follower : followerList) {
-					userIdList.add(follower.getUserId());
-				}
-
-				for (Follower follower : followerList) {
-					boolean sameFollowerExisting = isSameFollowerExisting(
-							categoryId, typeId, follower);
-
-					if (!sameFollowerExisting) {
-						try {
-							followerService.moveFollower(categoryId, typeId,
-									FollowerPhase.collected,
-									FollowerPhase.filtered, follower);
-
-							followerSize++;
-						} catch (ServiceException e) {
-							logger.error("Exception", e);
-
-							throw new ActionException(e);
-						}
-					} else {
-						try {
-							followerService.deleteFollower(categoryId, typeId,
-									FollowerPhase.collected, follower.getId());
-						} catch (ServiceException e) {
-							logger.error("Exception", e);
-
-							throw new ActionException(e);
-						}
+					if (userSize < followingUserSize) {
+						return;
 					}
-				}
 
-				logger.debug(String
-						.format("End to filter followers, categoryId = %s, typeId = %s, followerSize = %s",
-								categoryId, typeId, followerSize));
-			}
-		}
-	}
+					followingIndex = followingIndex + followingUserSize;
 
-	public void followFollowers() {
-		List<Category> categoryList;
+					applyingUser.setFollowingIndex(followingIndex);
 
-		try {
-			categoryList = categoryService.getCategoryList();
-		} catch (ServiceException e) {
-			logger.error("Exception", e);
-
-			throw new ActionException(e);
-		}
-
-		for (Category category : categoryList) {
-			int categoryId = category.getCategoryId();
-
-			List<Type> typeList;
-
-			try {
-				typeList = typeService.getTypeList(categoryId);
-			} catch (ServiceException e) {
-				logger.error("Exception", e);
-
-				throw new ActionException(e);
-			}
-
-			for (Type type : typeList) {
-				int typeId = type.getTypeId();
-
-				ActiveUserPhase activeUserPhase = ActiveUserPhase.applying;
-
-				List<ActiveUser> activeUserList;
-
-				try {
-					activeUserList = activeUserService.getActiveUserList(
-							categoryId, typeId, activeUserPhase);
-				} catch (ServiceException e) {
-					logger.error("Exception", e);
-
-					throw new ActionException(e);
-				}
-
-				for (ActiveUser activeUser : activeUserList) {
 					setCookies(followingDefaultHttpClient,
-							activeUser.getCookies());
+							applyingUser.getCookies());
 
 					try {
 						weiboHandler.refresh(followingDefaultHttpClient);
@@ -671,57 +547,40 @@ public class WeiboFollowersIncreasorAction {
 						continue;
 					}
 
-					activeUser
+					applyingUser
 							.setCookies(getCookies(followingDefaultHttpClient));
 
-					List<Follower> followerList;
-
-					try {
-						followerList = followerService.getFollowerList(
-								categoryId, typeId, FollowerPhase.filtered, 0,
-								followedFollowerSize);
-					} catch (ServiceException e) {
-						logger.error("Exception", e);
-
-						throw new ActionException(e);
-					}
-
-					int successfulFollowedSize = 0;
-					int failedFollowedSize = 0;
-
 					logger.debug(String
-							.format("Begin to follow followers, categoryId = %s, typeId = %s, successfulFollowedSize = %s, failedFollowedSize = %s",
-									categoryId, typeId, successfulFollowedSize,
-									failedFollowedSize));
+							.format("Begin to follow users, categoryId = %s, typeId = %s, userSize = %s",
+									categoryId, typeId, userSize));
 
-					for (Follower follower : followerList) {
+					userSize = 0;
+
+					for (User user : userList) {
+						String userId = user.getUserId();
+
 						try {
-							weiboHandler.follow(followingDefaultHttpClient,
-									follower.getUserId());
+							boolean normal = weiboHandler.isNormal(
+									followingDefaultHttpClient, userId);
 
-							try {
-								followerService.moveFollower(categoryId,
-										typeId, FollowerPhase.filtered,
-										FollowerPhase.followed, follower);
+							if (normal) {
+								weiboHandler.follow(followingDefaultHttpClient,
+										userId);
 
-								successfulFollowedSize++;
-							} catch (ServiceException e) {
-								logger.error("Exception", e);
+								userSize++;
 
-								throw new ActionException(e);
+								try {
+									userService.addUser(categoryId, typeId,
+											applyingUserId, UserPhase.followed,
+											user);
+								} catch (ServiceException e) {
+									logger.error("Exception", e);
+
+									throw new ActionException(e);
+								}
 							}
 						} catch (HandlerException e) {
-							try {
-								followerService.deleteFollower(categoryId,
-										typeId, FollowerPhase.filtered,
-										follower.getId());
 
-								failedFollowedSize++;
-							} catch (ServiceException ex) {
-								logger.error("Exception", ex);
-
-								throw new ActionException(ex);
-							}
 						}
 
 						try {
@@ -734,14 +593,13 @@ public class WeiboFollowersIncreasorAction {
 					}
 
 					logger.debug(String
-							.format("End to follow followers, categoryId = %s, typeId = %s, successfulFollowedSize = %s, failedFollowedSize = %s",
-									categoryId, typeId, successfulFollowedSize,
-									failedFollowedSize));
+							.format("End to follow users, categoryId = %s, typeId = %s, userSize = %s",
+									categoryId, typeId, userSize));
 				}
 
 				try {
-					activeUserService.updateActiveUserList(categoryId, typeId,
-							activeUserPhase, activeUserList);
+					applyingUserService.updateApplyingUserList(categoryId,
+							typeId, applyingUserList);
 				} catch (ServiceException e) {
 					logger.error("Exception", e);
 
@@ -751,7 +609,7 @@ public class WeiboFollowersIncreasorAction {
 		}
 	}
 
-	public void unfollowFollowers() {
+	private void unfollowUsers() {
 		List<Category> categoryList;
 
 		try {
@@ -778,22 +636,41 @@ public class WeiboFollowersIncreasorAction {
 			for (Type type : typeList) {
 				int typeId = type.getTypeId();
 
-				ActiveUserPhase activeUserPhase = ActiveUserPhase.applying;
-
-				List<ActiveUser> activeUserList;
+				List<ApplyingUser> applyingUserList;
 
 				try {
-					activeUserList = activeUserService.getActiveUserList(
-							categoryId, typeId, activeUserPhase);
+					applyingUserList = applyingUserService.getApplyingUserList(
+							categoryId, typeId);
 				} catch (ServiceException e) {
 					logger.error("Exception", e);
 
 					throw new ActionException(e);
 				}
 
-				for (ActiveUser activeUser : activeUserList) {
+				for (ApplyingUser applyingUser : applyingUserList) {
+					int applyingUserId = applyingUser.getId();
+
+					List<User> userList;
+
+					try {
+						userList = userService.getUserListBeforeDays(
+								categoryId, typeId, applyingUserId,
+								UserPhase.followed, reservingDays, 0,
+								unfollowingUserSize);
+					} catch (ServiceException e) {
+						logger.error("Exception", e);
+
+						throw new ActionException(e);
+					}
+
+					int userSize = userList.size();
+
+					if (userSize < unfollowingUserSize) {
+						return;
+					}
+
 					setCookies(unfollowingDefaultHttpClient,
-							activeUser.getCookies());
+							applyingUser.getCookies());
 
 					try {
 						weiboHandler.refresh(unfollowingDefaultHttpClient);
@@ -801,59 +678,35 @@ public class WeiboFollowersIncreasorAction {
 						continue;
 					}
 
-					activeUser
+					applyingUser
 							.setCookies(getCookies(unfollowingDefaultHttpClient));
 
-					List<Follower> followerList;
-
-					try {
-						followerList = followerService
-								.getFollowerListBeforeDays(categoryId, typeId,
-										FollowerPhase.followed, followedDays,
-										0, unfollowedFollowerSize);
-					} catch (ServiceException e) {
-						logger.error("Exception", e);
-
-						throw new ActionException(e);
-					}
-
-					int successfulUnfollowedSize = 0;
-					int failedUnfollowedSize = 0;
-
 					logger.debug(String
-							.format("Begin to unfollow followers, categoryId = %s, typeId = %s, successfulUnfollowedSize = %s, failedUnfollowedSize = %s",
-									categoryId, typeId,
-									successfulUnfollowedSize,
-									failedUnfollowedSize));
+							.format("Begin to unfollow users, categoryId = %s, typeId = %s, userSize = %s",
+									categoryId, typeId, userSize));
 
-					for (Follower follower : followerList) {
+					userSize = 0;
+
+					for (User user : userList) {
+						String userId = user.getUserId();
+
 						try {
 							weiboHandler.unfollow(unfollowingDefaultHttpClient,
-									follower.getUserId());
+									userId);
 
-							try {
-								followerService.moveFollower(categoryId,
-										typeId, FollowerPhase.followed,
-										FollowerPhase.unfollowed, follower);
-
-								successfulUnfollowedSize++;
-							} catch (ServiceException e) {
-								logger.error("Exception", e);
-
-								throw new ActionException(e);
-							}
+							userSize++;
 						} catch (HandlerException e) {
-							try {
-								followerService.deleteFollower(categoryId,
-										typeId, FollowerPhase.followed,
-										follower.getId());
 
-								failedUnfollowedSize++;
-							} catch (ServiceException ex) {
-								logger.error("Exception", ex);
+						}
 
-								throw new ActionException(ex);
-							}
+						try {
+							userService.deleteUser(categoryId, typeId,
+									applyingUserId, UserPhase.followed,
+									user.getId());
+						} catch (ServiceException ex) {
+							logger.error("Exception", ex);
+
+							throw new ActionException(ex);
 						}
 
 						try {
@@ -866,15 +719,13 @@ public class WeiboFollowersIncreasorAction {
 					}
 
 					logger.debug(String
-							.format("End to unfollow followers, categoryId = %s, typeId = %s, successfulUnfollowedSize = %s, failedUnfollowedSize = %s",
-									categoryId, typeId,
-									successfulUnfollowedSize,
-									failedUnfollowedSize));
+							.format("End to unfollow users, categoryId = %s, typeId = %s, userSize = %s",
+									categoryId, typeId, userSize));
 				}
 
 				try {
-					activeUserService.updateActiveUserList(categoryId, typeId,
-							activeUserPhase, activeUserList);
+					applyingUserService.updateApplyingUserList(categoryId,
+							typeId, applyingUserList);
 				} catch (ServiceException e) {
 					logger.error("Exception", e);
 
@@ -882,6 +733,12 @@ public class WeiboFollowersIncreasorAction {
 				}
 			}
 		}
+	}
+
+	public void followAndUnfollowUsers() {
+		followUsers();
+
+		unfollowUsers();
 	}
 
 }

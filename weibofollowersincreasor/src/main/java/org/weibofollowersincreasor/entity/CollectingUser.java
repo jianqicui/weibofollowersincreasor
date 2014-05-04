@@ -1,9 +1,10 @@
 package org.weibofollowersincreasor.entity;
 
-public class Follower {
+public class CollectingUser {
 
 	private int id;
 	private String userId;
+	private String userName;
 
 	public int getId() {
 		return id;
@@ -19,6 +20,14 @@ public class Follower {
 
 	public void setUserId(String userId) {
 		this.userId = userId;
+	}
+
+	public String getUserName() {
+		return userName;
+	}
+
+	public void setUserName(String userName) {
+		this.userName = userName;
 	}
 
 }
