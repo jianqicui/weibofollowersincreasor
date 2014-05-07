@@ -26,6 +26,7 @@ import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +38,6 @@ public class CollectingUserTest {
 
 	private DefaultHttpClient defaultHttpClient;
 
-	@SuppressWarnings("unchecked")
 	public CollectingUserTest(String cookiesFile) {
 		objectMapper = new ObjectMapper();
 
@@ -46,7 +46,9 @@ public class CollectingUserTest {
 		List<Map<String, Object>> list = null;
 
 		try {
-			list = objectMapper.readValue(new File(cookiesFile), List.class);
+			list = objectMapper.readValue(new File(cookiesFile),
+					new TypeReference<List<Map<String, Object>>>() {
+					});
 		} catch (JsonParseException e) {
 			e.printStackTrace();
 		} catch (JsonMappingException e) {
